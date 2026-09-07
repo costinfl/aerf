@@ -10,17 +10,29 @@
     <version>0.1.0-SNAPSHOT</version>
   </parent>
 
-  <artifactId>aerf-model</artifactId>
+  <artifactId>aerf-analysis</artifactId>
   <packaging>jar</packaging>
 
-  <name>AERF - Canonical Domain Model</name>
+  <name>AERF - Analysis Pipeline</name>
   <description>
-    The AERF v0.4 canonical graph domain model: nodes, edges, roles, relation
-    types and evidence/provenance. Technology-agnostic; must not depend on
-    any extraction technology (e.g. OpenRewrite).
+    Analysis pipeline stages that operate on the canonical aerf-model
+    graph: currently seed role inference (AERF v0.4 section 3.2, R^(0)
+    only). Metrics and invariants will be added here in later increments.
   </description>
 
   <dependencies>
+    <dependency>
+      <groupId>org.aerf</groupId>
+      <artifactId>aerf-model</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.aerf</groupId>
+      <artifactId>aerf-model</artifactId>
+      <version>${project.version}</version>
+      <type>test-jar</type>
+      <scope>test</scope>
+    </dependency>
     <dependency>
       <groupId>org.junit.jupiter</groupId>
       <artifactId>junit-jupiter</artifactId>
@@ -33,22 +45,6 @@
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-surefire-plugin</artifactId>
-      </plugin>
-      <!--
-        Publishes a test-jar so other modules (e.g. aerf-analysis) can reuse
-        the canonical sample graph fixtures in src/test/java instead of
-        duplicating them. See docs/increment-01-core-domain-model.md.
-      -->
-      <plugin>
-        <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-jar-plugin</artifactId>
-        <executions>
-          <execution>
-            <goals>
-              <goal>test-jar</goal>
-            </goals>
-          </execution>
-        </executions>
       </plugin>
     </plugins>
   </build>

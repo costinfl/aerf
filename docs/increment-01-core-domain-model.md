@@ -80,6 +80,10 @@ and inspection is implemented in this increment.
    `aerf-model` itself. When `aerf-analysis` is introduced and needs the
    same fixture, it should move to a shared test-fixtures artifact rather
    than being duplicated.
+   **Resolved in Increment 2:** `aerf-model` now publishes a test-jar
+   (`maven-jar-plugin`'s `test-jar` goal) and `aerf-analysis` depends on
+   it in test scope, rather than duplicating the fixture or a new module.
+   See `docs/increment-02-seed-role-inference.md`.
 
 ## A correctness issue found and fixed during this increment
 
