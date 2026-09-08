@@ -10,14 +10,20 @@
     <version>0.1.0-SNAPSHOT</version>
   </parent>
 
-  <artifactId>aerf-analysis</artifactId>
+  <artifactId>aerf-extraction</artifactId>
   <packaging>jar</packaging>
 
-  <name>AERF - Analysis Pipeline</name>
+  <name>AERF - Extraction Bridge</name>
   <description>
-    Analysis pipeline stages that operate on the canonical aerf-model
-    graph: currently seed role inference (AERF v0.4 section 3.2, R^(0)
-    only). Metrics and invariants will be added here in later increments.
+    The technology-agnostic extraction bridge AERF v0.4 section 9
+    describes: fact types an extractor emits (NodeFact/EdgeFact over
+    symbolic, not-yet-resolved SymbolRefs) and a GraphAssembler that
+    resolves and merges them into a canonical Graph. Depends only on
+    aerf-model; must never depend on any concrete extraction technology
+    (e.g. OpenRewrite) — that boundary is what keeps the AERF graph from
+    exposing OpenRewrite AST types, per section 9's central rule. A
+    technology-specific adapter (e.g. aerf-openrewrite) implements
+    SourceExtractor and depends on this module, not the other way round.
   </description>
 
   <dependencies>
@@ -47,8 +53,9 @@
         <artifactId>maven-surefire-plugin</artifactId>
       </plugin>
       <!--
-        This module must never depend on org.openrewrite. See
-        ExtractionAdapter Plan (docs/extraction-adapter-plan.md).
+        This module must never depend on org.openrewrite - that is the
+        whole point of it. See ExtractionAdapter Plan
+        (docs/extraction-adapter-plan.md).
       -->
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>

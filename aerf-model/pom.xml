@@ -50,6 +50,33 @@
           </execution>
         </executions>
       </plugin>
+      <!--
+        Enforces the description's own rule mechanically: this module must
+        never depend on org.openrewrite. See ExtractionAdapter Plan
+        (docs/extraction-adapter-plan.md).
+      -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-enforcer-plugin</artifactId>
+        <executions>
+          <execution>
+            <id>ban-openrewrite</id>
+            <goals>
+              <goal>enforce</goal>
+            </goals>
+            <configuration>
+              <rules>
+                <bannedDependencies>
+                  <excludes>
+                    <exclude>org.openrewrite:*</exclude>
+                  </excludes>
+                </bannedDependencies>
+              </rules>
+              <fail>true</fail>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
     </plugins>
   </build>
 </project>

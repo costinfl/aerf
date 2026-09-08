@@ -15,6 +15,7 @@
     <module>aerf-model</module>
     <module>aerf-analysis</module>
     <module>aerf-report</module>
+    <module>aerf-extraction</module>
   </modules>
 
   <properties>
@@ -52,6 +53,18 @@
           <groupId>org.apache.maven.plugins</groupId>
           <artifactId>maven-jar-plugin</artifactId>
           <version>3.4.1</version>
+        </plugin>
+        <!--
+          Not configured here (no default rule set): each module that wants
+          the org.openrewrite ban declares its own execution. See the
+          ExtractionAdapter Plan (docs/extraction-adapter-plan.md) - this is
+          what makes AERF v0.4 section 9's "the AERF graph must not expose
+          OpenRewrite AST types" a build failure rather than a convention.
+        -->
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-enforcer-plugin</artifactId>
+          <version>3.6.3</version>
         </plugin>
       </plugins>
     </pluginManagement>
