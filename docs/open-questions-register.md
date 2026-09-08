@@ -107,6 +107,33 @@ specific concern reliably (e.g. `finding.concern == "xss"`), which would
 push toward some agreed vocabulary — even if not a fixed enum, at least
 documented string constants. Left open pending the DSL's actual design.
 
+### 12. How should baseline-relative drift (§5.3) represent and load a baseline?
+
+*From: Increment 8.* `Delta_d = E_d^t - E_d^0` is a trivial function
+given two numbers, but AERF has no representation yet of *storing* a
+prior measurement to diff against. Deliberately deferred until
+JSON/reporting (still later on the MVP list) gives it somewhere to live,
+rather than bolting on an ad hoc storage mechanism now.
+
+### 13. Should confidence (§5.4) be graph-wide only, or per-dimension too?
+
+*From: Increment 8.* `AnalysisConfidence` currently computes one
+graph-wide ratio (resolved/total edges), independent of any specific
+entropy dimension. §5.4 doesn't say whether a governance consumer should
+instead see "persistence entropy computed at 90% confidence" alongside
+the persistence score itself. Not decided; the graph-wide reading was
+implemented as the more literal one.
+
+### 14. How does the full drift-aware risk model `R` (§5.3) eventually combine with invariant violations (§6)?
+
+*From: Increment 8.* §5.3's `R = sum(w_d f_d(E_d)) + beta *
+sum(gamma_d * max(0, Delta_d))` combines calibrated entropy with drift,
+but says nothing about governance invariant violations, which the task
+instructions explicitly require to stay a separately visible signal, not
+collapsed into one "architecture score." This increment stops at
+`E_total`/maturity/confidence; how those combine with invariant results
+once the DSL (§6) exists is undecided.
+
 ---
 
 ## Resolved (moved to the v0.4.1 patch, kept here for traceability)
