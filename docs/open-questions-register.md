@@ -134,6 +134,25 @@ collapsed into one "architecture score." This increment stops at
 `E_total`/maturity/confidence; how those combine with invariant results
 once the DSL (§6) exists is undecided.
 
+### 15. How should `E_inv = sum(lambda_k * I_k(S))` (§6.1) aggregate invariant indicators?
+
+*From: Increment 9.* Structurally similar to `AggregatedEntropy`
+(Increment 8), but §6.1 states no normalization constraint on
+`lambda_k` analogous to entropy's `sum(w_d) = 1`. Whether the same
+"undefined dimension makes the aggregate undefined" rule from Increment
+8 should apply here (e.g. an invariant that can't be evaluated because a
+metric is missing) is also open. Not implemented.
+
+### 16. How do invariant violations, `E_total`, and drift eventually combine into one governance-facing risk view?
+
+*From: Increment 9, restating/merging with #14.* The task instructions
+are explicit that entropy, drift, and governance invariant violations
+must stay separately visible rather than collapsing into a single
+"architecture score." §6 gives no combination formula at all (only
+§5.3's `R` combines entropy and drift, with no invariant term). Whatever
+increment tackles reporting/output will need a concrete answer, not
+just three independently-computed numbers with no stated relationship.
+
 ---
 
 ## Resolved (moved to the v0.4.1 patch, kept here for traceability)
