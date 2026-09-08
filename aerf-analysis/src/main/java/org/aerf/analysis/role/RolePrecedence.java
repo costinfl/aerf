@@ -37,4 +37,21 @@ public final class RolePrecedence {
         int index = ORDER.indexOf(role);
         return index < 0 ? Integer.MAX_VALUE : index;
     }
+
+    /**
+     * Resolves a set of conflicting signals to the single winning role,
+     * per this precedence order. {@link Role#UNKNOWN} if {@code signals}
+     * is empty.
+     */
+    public static Role winner(List<RoleSignal> signals) {
+        Role winner = Role.UNKNOWN;
+        boolean hasWinner = false;
+        for (RoleSignal signal : signals) {
+            if (!hasWinner || rank(signal.role()) < rank(winner)) {
+                winner = signal.role();
+                hasWinner = true;
+            }
+        }
+        return winner;
+    }
 }

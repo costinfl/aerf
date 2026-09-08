@@ -21,9 +21,10 @@ import java.util.Objects;
  * <p>Section 3.2 also defines an iterative refinement, {@code R^(n+1) =
  * F(R^(n), G)}, which uses graph relationships (neighbor roles,
  * centrality, dependency direction) and runs to a fixed point. That step
- * is <b>not implemented here</b> and is deferred to a later increment; a
- * caller of this class gets seed-only classification, not the full role
- * inference model.
+ * is <b>not implemented here</b>; see {@link IterativeRoleInferenceEngine},
+ * which wraps this class as its {@code R^(0)} and adds a bounded graph
+ * refinement pass. A caller of this class alone gets seed-only
+ * classification, not the full role inference model.
  *
  * <p>Determinism: rules are evaluated independently and every firing
  * rule's {@link RoleSignal} is kept; the winning role is chosen purely by
@@ -50,16 +51,7 @@ public final class SeedRoleInferenceEngine {
         }
         signals.sort(Comparator.comparing(RoleSignal::ruleName));
 
-        Role winner = Role.UNKNOWN;
-        boolean hasWinner = false;
-        for (RoleSignal signal : signals) {
-            if (!hasWinner || RolePrecedence.rank(signal.role()) < RolePrecedence.rank(winner)) {
-                winner = signal.role();
-                hasWinner = true;
-            }
-        }
-
-        return new RoleInferenceResult(node.id(), winner, signals);
+        return new RoleInferenceResult(node.id(), RolePrecedence.winner(signals), signals);
     }
 
     /** Every node in the graph classified independently, in the graph's own node order. */
