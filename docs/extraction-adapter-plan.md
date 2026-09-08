@@ -169,18 +169,62 @@ determinism test that shuffles fact order and asserts an identical
 graph. Strongest acceptance test: reproduce
 `CanonicalSampleGraphs.layeredOrderSlice()`'s exact shape from facts.
 
-**Step 0 spike, before Increment 13 — throwaway, not committed.** Verify
-the OpenRewrite 8.90.4 API by parsing a single file. Knowledge of
-`JavaParser` / `JavaIsoVisitor` / `JavaType` specifics is the weakest
-link in this plan, and javadoc.io was unreachable from this environment,
-so **verify, do not assume**. Confirm behaviour with *no* classpath too;
-the L1 degradation path depends on it.
+**Step 0 spike, before Increment 13 — done, throwaway, not committed.**
+Ran against real OpenRewrite 8.90.4 (`javap` against the resolved jars,
+then a small standalone program actually parsing sample sources) rather
+than trusting method signatures alone. Findings that change Increment
+13's design from what was originally assumed:
+
+- **`org.slf4j:slf4j-nop` (or an equivalent binding) is a required
+  runtime dependency**, not just a transitive nicety. Without one on the
+  classpath, OpenRewrite's internal javac invocation throws
+  `NoClassDefFoundError` while trying to log a diagnostic; OpenRewrite
+  catches this itself and continues, but stderr fills with unrelated
+  stack traces that would be easy to mistake for a real parsing failure.
+  Must be added to `aerf-openrewrite`'s pom.
+- **Resolution quality is a function of the parse *batch*, not only
+  whether a classpath was supplied.** Parsing several related source
+  files together in one `JavaParser.parse(...)` call resolves
+  cross-references between them — `extends`, `implements`, a method
+  call's declaring type and parameter types — with **zero external
+  classpath**, and JDK types (`java.lang.Long`, `java.io.Serializable`)
+  resolve automatically via the bootstrap classpath regardless. An
+  explicit classpath is only needed for types belonging to genuine
+  external dependencies (real Spring classes, say) that are not part of
+  the source set being parsed. This means Increment 13's "with/without
+  classpath" test matrix needs a third real case in between — parsing a
+  project's own multi-file source set together, no external classpath —
+  since that case already gets L2-quality resolution for in-project
+  references, distinct from both the fully-isolated single-file case and
+  the has-a-real-classpath case.
+- **Unresolved type representation differs by tree position — both
+  checks are needed, not just one:** `J.ClassDeclaration.getExtends().getType()`
+  for an unresolvable supertype returns the sentinel
+  `JavaType.Unknown.getInstance()`; `J.MethodInvocation.getMethodType()`
+  for an unresolvable call returns `null` instead. A fidelity-detection
+  implementation checking only for `null` would silently miss the
+  `Unknown`-sentinel case on type-tree positions (extends/implements/field
+  types) — confirmed by parsing a class extending a type declared nowhere
+  in the batch.
+- `JavaIsoVisitor`'s `visitClassDeclaration` / `visitMethodInvocation` /
+  `visitForEachLoop` (and by extension `visitForLoop` /
+  `visitWhileLoop` / `visitDoWhileLoop`, present in the same visitor)
+  behave exactly as assumed — confirmed by an actual traversal, not just
+  by the method signatures `javap` shows.
+- The `org.openrewrite.ExecutionContext` / `org.aerf.model.ExecutionContext`
+  name clash is real and was hit directly: the spike needed
+  `org.openrewrite.ExecutionContext` for the parser call. Increment 13's
+  code will need one of the two fully qualified wherever both are used
+  in the same file, exactly as anticipated above.
 
 **Increment 13 — `aerf-openrewrite`, class level.** Parse a source set;
 emit `COMPONENT` nodes for types and `EXTENDS`/`IMPLEMENTS`/`DEPENDS`
-edges. Record `L2_SYMBOL_RESOLVED` when OpenRewrite resolved a type and
-`L1_SYNTAX` when it did not — the fidelity distinction falls straight
-out of type attribution. Test with and without a classpath.
+edges. Record `L2_SYMBOL_RESOLVED` when OpenRewrite resolved a type
+(checking both the `null` and `JavaType.Unknown` cases above) and
+`L1_SYNTAX` when it did not. Test all three cases the spike identified:
+a fully isolated single file, a project's own multi-file source set
+parsed together with no external classpath, and a source set plus a
+real external classpath.
 *Sample project placement:* its `.java` files go under
 `src/test/resources` (the repo's first `resources` directory), **not**
 `src/test/java` — deliberately legacy-flavoured, defect-carrying sample
