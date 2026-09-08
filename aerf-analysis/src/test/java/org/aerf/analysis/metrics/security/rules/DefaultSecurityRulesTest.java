@@ -47,6 +47,34 @@ class DefaultSecurityRulesTest {
     }
 
     @Test
+    void unescapedOutputAttributeIsFlaggedWithNoMarkerTextInTheDescription() {
+        // Structured attribute (AERF v0.4.1 patch Amendment 5), no "unescaped
+        // output" substring anywhere - only the attribute drives the finding.
+        Node node = viewNode(List.of(
+                Evidence.builder("jsp", "renders order.notes", ExtractionFidelity.L1_SYNTAX)
+                        .attribute("outputEncoding", "unescaped")
+                        .build()));
+
+        Optional<SecurityOpportunityRule.Finding> finding = rule.evaluate(node);
+
+        assertTrue(finding.isPresent());
+        assertTrue(finding.get().weaknessDetected());
+    }
+
+    @Test
+    void escapedOutputAttributeIsAnOpportunityButNotAWeakness() {
+        Node node = viewNode(List.of(
+                Evidence.builder("jsp", "renders order.notes", ExtractionFidelity.L1_SYNTAX)
+                        .attribute("outputEncoding", "escaped")
+                        .build()));
+
+        Optional<SecurityOpportunityRule.Finding> finding = rule.evaluate(node);
+
+        assertTrue(finding.isPresent());
+        assertFalse(finding.get().weaknessDetected());
+    }
+
+    @Test
     void aViewNodeWithNoRenderingEvidenceIsNotAnOpportunityAtAll() {
         Node node = viewNode(List.of());
 

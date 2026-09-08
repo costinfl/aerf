@@ -33,16 +33,18 @@ public final class DefaultSecurityRules {
     /**
      * Applicable only to {@link NodeType#VIEW} nodes carrying rendering
      * evidence. The convention (illustrative, not adapter-implemented
-     * yet): evidence whose description contains {@code "unescaped
-     * output"} is a detected weakness; evidence whose description
-     * contains {@code "escaped output"} is an applicable opportunity
-     * that was handled correctly. A VIEW node with no such evidence at
-     * all is not an opportunity — absence of evidence must not be read
-     * as absence of a control weakness (section 4.4's "not mere
-     * technology presence").
+     * yet): a structured {@code outputEncoding} attribute (AERF v0.4.1
+     * patch Amendment 5) valued {@code "unescaped"} or {@code "escaped"}
+     * is preferred; when absent, evidence whose description contains
+     * {@code "unescaped output"} is a detected weakness and
+     * {@code "escaped output"} is an opportunity handled correctly. A
+     * VIEW node with no such evidence at all is not an opportunity —
+     * absence of evidence must not be read as absence of a control
+     * weakness (section 4.4's "not mere technology presence").
      */
     static final class UnencodedViewOutputRule implements SecurityOpportunityRule {
 
+        private static final String OUTPUT_ENCODING_ATTRIBUTE = "outputEncoding";
         private static final String UNESCAPED_MARKER = "unescaped output";
         private static final String ESCAPED_MARKER = "escaped output";
 
@@ -57,11 +59,12 @@ public final class DefaultSecurityRules {
                 return Optional.empty();
             }
             for (Evidence evidence : node.evidence()) {
+                String encoding = evidence.attributes().get(OUTPUT_ENCODING_ATTRIBUTE);
                 String description = evidence.description();
-                if (description.contains(UNESCAPED_MARKER)) {
+                if ("unescaped".equals(encoding) || description.contains(UNESCAPED_MARKER)) {
                     return Optional.of(new Finding("xss", true, "unescaped output observed: " + description));
                 }
-                if (description.contains(ESCAPED_MARKER)) {
+                if ("escaped".equals(encoding) || description.contains(ESCAPED_MARKER)) {
                     return Optional.of(new Finding("xss", false, "output encoding observed: " + description));
                 }
             }

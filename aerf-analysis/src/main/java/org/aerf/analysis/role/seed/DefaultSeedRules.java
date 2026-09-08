@@ -21,8 +21,20 @@ import java.util.Optional;
  * intentionally small and is expected to be replaced or extended per
  * organization/adapter, per the framework's governance-configurability
  * principle.
+ *
+ * <p>The annotation-matching rules below prefer the structured
+ * {@code annotation} attribute (AERF v0.4.1 patch Amendment 5) — a real
+ * adapter emits {@code Evidence} carrying
+ * {@code attribute("annotation", "org.springframework.stereotype.Controller")}
+ * — and fall back to matching {@code description} prose only when no such
+ * attribute is present, so evidence built before Amendment 5 (including
+ * every existing test fixture) still matches unchanged.
  */
 public final class DefaultSeedRules {
+
+    private static final String ANNOTATION_ATTRIBUTE = "annotation";
+    private static final String SPRING_CONTROLLER_ANNOTATION = "org.springframework.stereotype.Controller";
+    private static final String SPRING_SERVICE_ANNOTATION = "org.springframework.stereotype.Service";
 
     private DefaultSeedRules() {
     }
@@ -52,7 +64,11 @@ public final class DefaultSeedRules {
         }
     }
 
-    /** Semantic seed: a Spring @Controller annotation observed by the spring adapter. */
+    /**
+     * Semantic seed: a Spring @Controller annotation observed by the
+     * spring adapter — structured {@code annotation} attribute preferred,
+     * {@code description} substring as a fallback.
+     */
     static final class PresentationBySpringControllerAnnotation implements RoleInferenceRule {
         @Override
         public String name() {
@@ -62,13 +78,19 @@ public final class DefaultSeedRules {
         @Override
         public Optional<Candidate> evaluate(Node node) {
             return node.evidence().stream()
-                    .filter(e -> e.sourceAdapter().equals("spring") && e.description().contains("@Controller"))
+                    .filter(e -> e.sourceAdapter().equals("spring"))
+                    .filter(e -> SPRING_CONTROLLER_ANNOTATION.equals(e.attributes().get(ANNOTATION_ATTRIBUTE))
+                            || e.description().contains("@Controller"))
                     .findFirst()
                     .map(e -> new Candidate(Role.PRESENTATION, "@Controller evidence observed: " + e.description()));
         }
     }
 
-    /** Semantic seed: a Spring @Service annotation observed by the spring adapter. */
+    /**
+     * Semantic seed: a Spring @Service annotation observed by the spring
+     * adapter — structured {@code annotation} attribute preferred,
+     * {@code description} substring as a fallback.
+     */
     static final class ApplicationBySpringServiceAnnotation implements RoleInferenceRule {
         @Override
         public String name() {
@@ -78,7 +100,9 @@ public final class DefaultSeedRules {
         @Override
         public Optional<Candidate> evaluate(Node node) {
             return node.evidence().stream()
-                    .filter(e -> e.sourceAdapter().equals("spring") && e.description().contains("@Service"))
+                    .filter(e -> e.sourceAdapter().equals("spring"))
+                    .filter(e -> SPRING_SERVICE_ANNOTATION.equals(e.attributes().get(ANNOTATION_ATTRIBUTE))
+                            || e.description().contains("@Service"))
                     .findFirst()
                     .map(e -> new Candidate(Role.APPLICATION, "@Service evidence observed: " + e.description()));
         }

@@ -53,6 +53,30 @@ class DefaultSeedRulesTest {
     }
 
     @Test
+    void controllerRuleFiresFromTheStructuredAnnotationAttributeAlone() {
+        // No "@Controller" substring anywhere in the description: only the
+        // structured attribute (AERF v0.4.1 patch Amendment 5) makes this match.
+        RoleInferenceRule rule = new DefaultSeedRules.PresentationBySpringControllerAnnotation();
+        Node node = Node.withUnknownRole(NodeId.of("a"), NodeType.COMPONENT, Map.of(),
+                List.of(Evidence.builder("spring", "web-tier stereotype annotation observed", ExtractionFidelity.L2_SYMBOL_RESOLVED)
+                        .attribute("annotation", "org.springframework.stereotype.Controller")
+                        .build()));
+
+        assertTrue(rule.evaluate(node).isPresent());
+    }
+
+    @Test
+    void serviceRuleFiresFromTheStructuredAnnotationAttributeAlone() {
+        RoleInferenceRule rule = new DefaultSeedRules.ApplicationBySpringServiceAnnotation();
+        Node node = Node.withUnknownRole(NodeId.of("a"), NodeType.COMPONENT, Map.of(),
+                List.of(Evidence.builder("spring", "service-tier stereotype annotation observed", ExtractionFidelity.L2_SYMBOL_RESOLVED)
+                        .attribute("annotation", "org.springframework.stereotype.Service")
+                        .build()));
+
+        assertTrue(rule.evaluate(node).isPresent());
+    }
+
+    @Test
     void domainRuleFiresOnlyForDataNodeType() {
         RoleInferenceRule rule = new DefaultSeedRules.DomainByDataNodeType();
 

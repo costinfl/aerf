@@ -194,6 +194,60 @@ reader of v0.4 alone would not know this restriction exists.
 
 ---
 
+## Amendment 5 — Evidence gains structured attributes
+
+**Affected sections:** §2.2/§2.4/Appendix A (same fields Amendment 1
+touched), plus the illustrative rule catalogs it enabled
+(`DefaultSeedRules`, `DefaultSecurityRules` in `aerf-analysis`).
+
+**Original text:** As in Amendment 1 — Evidence's fields are
+`sourceAdapter`, `description`, `location`, `fidelity`, plus Amendment
+1's `execution_context`. `description` is free-text prose.
+
+**Problem found:** Every illustrative rule built so far (Increments 2
+and 7) matches evidence by parsing `description` prose for a fixed
+substring — `.contains("@Controller")`, `.contains("unescaped
+output")`. These were always documented as illustrative stand-ins for
+what a real adapter would produce (`DefaultSeedRules`'s own javadoc:
+"concrete rules are explicitly extraction-adapter work"), but a real
+adapter parsing real annotations and expressions has a *structured* fact
+to report — an annotation's fully-qualified type name, a resolved
+encoding function — not a sentence to compose and then have a rule
+re-parse. Forcing every adapter to fabricate matching prose to be
+legible to existing rules would be exactly backwards: it would make the
+rule catalog the source of truth for what evidence looks like, instead
+of the adapter's actual observation.
+
+**Amendment:** Evidence gains an `attributes` field: an open,
+adapter-defined `Map<String, String>` of structured facts, alongside
+(not instead of) `description`. Empty by default for evidence built
+before this amendment. No key vocabulary is prescribed by v0.4 itself —
+same reasoning as `SecurityOpportunityRule.Finding`'s `concern` field
+(§4.4 gives examples, not a closed set) — but this patch records the two
+conventions the illustrative rule catalogs were updated to prefer, so
+they are documented rather than left to be reverse-engineered from code:
+an `annotation` attribute valued with the annotation's fully-qualified
+type name (e.g. `org.springframework.stereotype.Controller`), and an
+`outputEncoding` attribute valued `"escaped"` or `"unescaped"`. Every
+updated rule checks the structured attribute first and falls back to
+the original prose substring match when the attribute is absent, so
+evidence built before this amendment — including every existing test
+fixture — continues to match unchanged.
+
+**Rationale / evidence:** Implemented in Increment 11 (`aerf-model`,
+`Evidence` gains `attributes()` plus a new `Evidence.Builder`, since the
+four existing `of(...)` factories already cover every combination of
+`location` and `execution_context` — a sixth field would otherwise
+double that to eight overloads). All 65 pre-existing `Evidence.of(...)`
+call sites, all in test sources, needed no changes: no production code
+constructed `Evidence` before this increment, so the change is purely
+additive. `DefaultSeedRules` and `DefaultSecurityRules` updated to
+prefer the structured attributes with prose as fallback; new tests
+confirm each rule now fires from the attribute alone, with no matching
+substring anywhere in the description.
+
+---
+
 ## Non-normative implementation note — determinism and `Map.copyOf`
 
 Not a specification amendment (no conceptual change), but worth
