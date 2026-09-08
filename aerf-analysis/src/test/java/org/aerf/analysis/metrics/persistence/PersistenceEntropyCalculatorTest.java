@@ -148,6 +148,46 @@ class PersistenceEntropyCalculatorTest {
     }
 
     @Test
+    void weightedValueCountsMultipleIteratedEvidenceItemsOnTheSameEdge() {
+        // AERF v0.4.1 patch Amendment 3: an edge backed by two independently
+        // observed iterated call sites weighs 2 in the numerator, not 1.
+        Graph.Builder builder = Graph.builder()
+                .addNode(node("service", NodeType.COMPONENT, Role.APPLICATION))
+                .addNode(node("repoA", NodeType.COMPONENT, Role.PERSISTENCE))
+                .addNode(node("repoB", NodeType.COMPONENT, Role.PERSISTENCE))
+                .addNode(node("repoC", NodeType.COMPONENT, Role.PERSISTENCE));
+        builder.addEdge(NodeRef.resolved(NodeId.of("service")), NodeRef.resolved(NodeId.of("repoA")), RelationType.CALL,
+                List.of(
+                        Evidence.of("java", "iterated call site 1", ExtractionFidelity.L2_SYMBOL_RESOLVED, ExecutionContext.ITERATED),
+                        Evidence.of("java", "iterated call site 2", ExtractionFidelity.L2_SYMBOL_RESOLVED, ExecutionContext.ITERATED)));
+        builder.addEdge(NodeRef.resolved(NodeId.of("service")), NodeRef.resolved(NodeId.of("repoB")), RelationType.CALL,
+                List.of(Evidence.of("java", "single call", ExtractionFidelity.L2_SYMBOL_RESOLVED, ExecutionContext.SINGLE)));
+        builder.addEdge(NodeRef.resolved(NodeId.of("service")), NodeRef.resolved(NodeId.of("repoC")), RelationType.CALL,
+                List.of(Evidence.of("java", "one iterated call site", ExtractionFidelity.L2_SYMBOL_RESOLVED, ExecutionContext.ITERATED)));
+
+        PersistenceEntropyResult result = calculator.compute(builder.build());
+
+        assertEquals(3, result.relevantEdges().size());
+        assertEquals(2, result.flaggedEdges().size(), "repoA and repoC are flagged; repoB is not");
+        assertEquals(OptionalDouble.of(2.0 / 3.0), result.value(), "plain ratio counts repoA once, not twice");
+        assertEquals(OptionalDouble.of(3.0 / 3.0), result.weightedValue(), "weighted ratio counts repoA's 2 evidence items plus repoC's 1");
+    }
+
+    @Test
+    void weightedValueEqualsPlainValueWhenEveryFlaggedEdgeHasExactlyOneIteratedItem() {
+        Graph graph = Graph.builder()
+                .addNode(node("service", NodeType.COMPONENT, Role.APPLICATION))
+                .addNode(node("repo", NodeType.COMPONENT, Role.PERSISTENCE))
+                .addEdge(NodeRef.resolved(NodeId.of("service")), NodeRef.resolved(NodeId.of("repo")), RelationType.CALL,
+                        List.of(Evidence.of("java", "iterated call", ExtractionFidelity.L2_SYMBOL_RESOLVED, ExecutionContext.ITERATED)))
+                .build();
+
+        PersistenceEntropyResult result = calculator.compute(graph);
+
+        assertEquals(result.value(), result.weightedValue());
+    }
+
+    @Test
     void theFixtureGraphsExistingCallsAreNotFlaggedSinceNoneClaimIteration() {
         Graph graph = CanonicalSampleGraphs.layeredOrderSlice();
 

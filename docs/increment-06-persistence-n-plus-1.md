@@ -89,9 +89,12 @@ explicit `UNKNOWN` where nothing was said before.
    `LayerEntropyResult`/`CycleEntropyResult`. Appendix B separately
    labels this metric "Evidence-weighted N+1 patterns / relevant
    persistence contexts" — but no weighting formula is defined anywhere
-   in v0.4. Rather than invent one, this increment implements the plain
-   ratio and documents the mismatch (see Open Questions) rather than
-   quietly presenting an invented weighting scheme as the specification.
+   in v0.4. This increment left that gap open; it is since resolved by
+   **AERF v0.4.1 patch Amendment 3** (`docs/aerf-v0.4.1-patch.md`), which
+   defines the weighting concretely and adds
+   `PersistenceEntropyResult.weightedValue()` alongside the plain
+   `value()` — both stay separately visible rather than one silently
+   replacing the other.
 
 ## Evidence — what this increment proves or exposes about the AERF model
 
@@ -110,16 +113,16 @@ explicit `UNKNOWN` where nothing was said before.
   flagging old data.
 - The "Evidence-weighted" vs. "plain ratio" mismatch between §4.3's body
   text and Appendix B's summary table is a small but real internal
-  inconsistency in v0.4 worth flagging to whoever owns the specification.
+  inconsistency in v0.4, resolved by v0.4.1 patch Amendment 3 (see
+  above) rather than left flagging the spec's owner indefinitely.
 
 ## Open questions for the architecture
 
-- **What should "evidence-weighted" mean, concretely?** Appendix B uses
-  the term but nothing in v0.4 defines a weighting formula. Candidates:
-  weight by number of distinct iterated call sites per edge; weight by
-  extraction fidelity (an `L1_SYNTAX` iteration observation is weaker
-  evidence than an `L2_SYMBOL_RESOLVED` one); weight by estimated loop
-  size if ever extracted. This increment takes no position.
+*(The "what does evidence-weighted mean" question originally recorded
+here is resolved — see Decision 3 above and
+`docs/aerf-v0.4.1-patch.md` Amendment 3. Remaining open items are
+tracked centrally in `docs/open-questions-register.md`.)*
+
 - **How should "batched or otherwise justified" repetition eventually be
   represented?** Once an invariant/exception model exists (§6), does an
   approved exception suppress this metric's flag entirely, or does the

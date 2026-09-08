@@ -1,6 +1,7 @@
 package org.aerf.analysis.metrics.persistence;
 
 import org.aerf.model.Edge;
+import org.aerf.model.ExecutionContext;
 
 import java.util.List;
 import java.util.OptionalDouble;
@@ -28,15 +29,40 @@ public record PersistenceEntropyResult(List<Edge> relevantEdges, List<Edge> flag
      * entropy.
      *
      * <p>This is a plain count ratio, matching section 4.3's own formula
-     * shape. Appendix B separately calls this metric "Evidence-weighted
-     * N+1 patterns / relevant persistence contexts," but no weighting
-     * scheme is defined anywhere in v0.4 — see the increment notes for
-     * why this implementation does not invent one.
+     * shape, and is distinct from {@link #weightedValue()} — both remain
+     * separately visible per the "measurement before aggregation"
+     * principle rather than collapsing into one number.
      */
     public OptionalDouble value() {
         if (relevantEdges.isEmpty()) {
             return OptionalDouble.empty();
         }
         return OptionalDouble.of((double) flaggedEdges.size() / relevantEdges.size());
+    }
+
+    /**
+     * The "Evidence-weighted N+1 patterns / relevant persistence contexts"
+     * score from Appendix B, as concretely defined by AERF v0.4.1 patch
+     * Amendment 3: each relevant edge's weight is the count of its
+     * provenance entries with {@link ExecutionContext#ITERATED}, and this
+     * value is {@code sum(weight) / count(relevantEdges)} — the
+     * denominator stays an unweighted count, as Appendix B states.
+     *
+     * <p>Equal to {@link #value()} exactly when every flagged edge has
+     * precisely one {@code ITERATED} evidence item; strictly greater
+     * whenever a flagged edge is backed by more than one independently
+     * observed iterated call site, since such an edge then contributes
+     * more than 1 to the numerator instead of a flat 1.
+     */
+    public OptionalDouble weightedValue() {
+        if (relevantEdges.isEmpty()) {
+            return OptionalDouble.empty();
+        }
+        long totalWeight = flaggedEdges.stream()
+                .mapToLong(edge -> edge.provenance().stream()
+                        .filter(evidence -> evidence.executionContext() == ExecutionContext.ITERATED)
+                        .count())
+                .sum();
+        return OptionalDouble.of((double) totalWeight / relevantEdges.size());
     }
 }
