@@ -88,6 +88,25 @@ layer downstream (meaning `PersistenceEntropyResult` might eventually
 need an "excused" bucket alongside "flagged")? Depends on decisions not
 yet made about the invariant DSL's shape.
 
+### 10. How should CSRF and mass-assignment detection be modeled?
+
+*From: Increment 7.* Unlike the XSS rule implemented (a single-node
+check on `VIEW` evidence), CSRF and mass-assignment are naturally
+relationship concerns — about a form submission or endpoint binding
+configuration, not one artifact in isolation. Needs either an edge-aware
+`SecurityOpportunityRule` variant (parallel to
+`GraphRoleRefinementRule`) or a documented node-evidence convention for
+representing binding/form configuration. Not decided.
+
+### 11. Should security "concern" become a closed, governance-configured vocabulary?
+
+*From: Increment 7.* Currently a free-text `String` (deliberately, since
+§4.4 gives XSS/CSRF/mass-assignment only as examples, not a closed set).
+Once the invariant DSL exists, invariants may want to reference a
+specific concern reliably (e.g. `finding.concern == "xss"`), which would
+push toward some agreed vocabulary — even if not a fixed enum, at least
+documented string constants. Left open pending the DSL's actual design.
+
 ---
 
 ## Resolved (moved to the v0.4.1 patch, kept here for traceability)
