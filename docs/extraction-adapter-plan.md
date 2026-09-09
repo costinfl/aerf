@@ -303,6 +303,34 @@ JSON), plus a GitHub Actions workflow. The repo has **no CI at all**
 today, so this adds the first: build and test on push, plus a separate
 optional job running the analysis against a real cloned repository.
 
+**Increment 16 — done. Plan complete.** New module `aerf-pipeline`
+(`Pipeline`/`PipelineConfig`/`PipelineReport`/`Main`) composes every prior
+increment into one runnable pipeline. A purpose-built `defect-sample`
+(kept separate from `aerf-openrewrite`'s own extraction-correctness
+sample) plants exactly the three cases this plan's Verification section
+named, and the pipeline finds all three with exact, analytically-derived
+numbers: a direct Presentation→Persistence layering violation
+(`layerEntropy.value() == 1.0`), an N+1 loop
+(`persistenceEntropy.value() == 0.5`), and a three-level inheritance chain
+needing precisely two role-refinement passes. Doing this required a real,
+load-bearing fix discovered only by wiring the whole thing together: no
+`CALL`/`DEPENDS` edge could ever be flagged by any metric before this
+increment, because `FUNCTION` nodes (a `CALL` edge's only possible
+endpoints) never had a role — nothing in the model connects a method to
+its declaring class, so graph-relationship refinement could never reach
+them. Fixed by having `JavaSourceExtractor` copy a class's own stereotype
+evidence onto its declared methods too; the underlying structural gap is
+filed as new open question #17, not silently resolved. The first GitHub
+Actions workflow (build+test on push) is added; the plan's own
+real-cloned-repository job is deliberately deferred, gated on open
+question #7's recursive-Tarjan rewrite exactly as this plan's own Risks
+section anticipated. 5 new tests in `aerf-pipeline`, 1 more in
+`aerf-openrewrite`; 209 total across the reactor.
+
+Increments 11 through 16 are all complete. AERF's pipeline has run — and
+found real, independently-verifiable findings — on real Java source for
+the first time.
+
 ## Risks
 
 1. **OpenRewrite API uncertainty** — highest risk. Mitigated by the Step

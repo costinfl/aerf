@@ -159,6 +159,23 @@ class JavaSourceExtractorTest {
     }
 
     @Test
+    void propagatesAClasssStereotypeEvidenceOntoItsOwnDeclaredMethods() {
+        // Increment 16: the canonical graph has no structural edge from a
+        // FUNCTION node to its declaring COMPONENT node, so a method's
+        // own role can never come from graph-relationship refinement -
+        // only from evidence on the method's own NodeFact. Copying the
+        // class's stereotype evidence onto each declared method is what
+        // makes a method-level role (and therefore layering/N+1 checks
+        // that look at a CALL edge's own endpoints) inferable at all.
+        Graph graph = extractSample(List.of());
+
+        NodeId placeOrderId = JavaNodeIds.method("com.example.OrderService", "placeOrder", List.of("java.lang.Long"));
+        Node placeOrder = graph.node(placeOrderId).orElseThrow();
+        assertTrue(placeOrder.evidence().stream().anyMatch(e -> e.sourceAdapter().equals("spring")
+                && "org.springframework.stereotype.Service".equals(e.attributes().get("annotation"))));
+    }
+
+    @Test
     void emitsStructuredEvidenceMatchingDefaultSeedRulesForEachSpringStereotype() {
         Graph graph = extractSample(List.of());
 

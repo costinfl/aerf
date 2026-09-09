@@ -167,6 +167,28 @@ must stay separately visible rather than collapsing into a single
 increment tackles reporting/output will need a concrete answer, not
 just three independently-computed numbers with no stated relationship.
 
+### 17. Should the canonical model have a structural relation from a FUNCTION node to its declaring COMPONENT node?
+
+*From: Increment 16.* Building the end-to-end pipeline runner surfaced a
+real gap: `RelationType` has no "declares"/"member-of" relation
+connecting a method's `FUNCTION` node to the `COMPONENT` node it belongs
+to. Without one, graph-relationship role refinement (`R^(n+1)`,
+`InheritRoleFromSupertype`) has no way to propagate a class's role down
+to its own methods — only `EXTENDS`/`IMPLEMENTS` inheritance is
+representable that way. `JavaSourceExtractor` was extended to copy a
+class's own stereotype evidence onto each of its declared methods'
+`NodeFact`s at extraction time as a working substitute (see
+`docs/increment-16-*.md`), but this is adapter-level evidence
+duplication, not a graph-relationship fact — it only works for the one
+adapter and evidence shape that was updated to do it, and gives no
+general answer for e.g. a `CALL`-based centrality signal about a method
+wanting to reason about its declaring class's role, or vice versa. A
+future increment/patch should decide whether AERF v0.4's relation set
+should gain a structural declares-type relation, whether role inference
+should gain a dedicated "inherits from declaring node" rule instead, or
+whether evidence-time propagation (this increment's choice) is
+accepted as the intended mechanism going forward.
+
 ---
 
 ## Resolved (moved to the v0.4.1 patch, kept here for traceability)

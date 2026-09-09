@@ -134,6 +134,18 @@ public final class JavaSourceExtractor implements SourceExtractor {
 
         /** The enclosing class's resolved FQN, or {@code null} if unresolved/absent. */
         private String currentOwnerFqn;
+        /**
+         * The enclosing class's own Spring stereotype evidence (Increment
+         * 15), copied onto each of its declared methods' FUNCTION
+         * NodeFacts too (Increment 16) - see
+         * {@code docs/increment-16-*.md} for why: the canonical graph has
+         * no structural edge from a FUNCTION node to its declaring
+         * COMPONENT node, so graph-relationship role refinement has no
+         * way to propagate a class's role down to its own methods: only
+         * copying the evidence at extraction time makes a method's own
+         * role inferable at all.
+         */
+        private List<Evidence> currentOwnerStereotypeEvidence = List.of();
         /** The enclosing method's FUNCTION {@code NodeId} value, or {@code null} outside any method. */
         private String currentMethodId;
         private int loopDepth;
@@ -145,6 +157,7 @@ public final class JavaSourceExtractor implements SourceExtractor {
         @Override
         public J.ClassDeclaration visitClassDeclaration(J.ClassDeclaration classDecl, Object p) {
             String previousOwnerFqn = this.currentOwnerFqn;
+            List<Evidence> previousOwnerStereotypeEvidence = this.currentOwnerStereotypeEvidence;
 
             JavaType.FullyQualified type = classDecl.getType();
             if (isResolved(type)) {
@@ -156,9 +169,11 @@ public final class JavaSourceExtractor implements SourceExtractor {
                                 ExtractionFidelity.L2_SYMBOL_RESOLVED)
                         .location(sourcePath.toString())
                         .build();
+                List<Evidence> stereotypeEvidence = springStereotypeEvidence(classDecl.getLeadingAnnotations());
+                this.currentOwnerStereotypeEvidence = stereotypeEvidence;
                 List<Evidence> classEvidence = new ArrayList<>();
                 classEvidence.add(declarationEvidence);
-                classEvidence.addAll(springStereotypeEvidence(classDecl.getLeadingAnnotations()));
+                classEvidence.addAll(stereotypeEvidence);
                 nodeFacts.add(new NodeFact(id, NodeType.COMPONENT, Map.of(), List.copyOf(classEvidence)));
 
                 if (classDecl.getExtends() != null) {
@@ -171,10 +186,12 @@ public final class JavaSourceExtractor implements SourceExtractor {
                 }
             } else {
                 this.currentOwnerFqn = null;
+                this.currentOwnerStereotypeEvidence = List.of();
             }
 
             J.ClassDeclaration result = super.visitClassDeclaration(classDecl, p);
             this.currentOwnerFqn = previousOwnerFqn;
+            this.currentOwnerStereotypeEvidence = previousOwnerStereotypeEvidence;
             return result;
         }
 
@@ -222,7 +239,10 @@ public final class JavaSourceExtractor implements SourceExtractor {
                                 ExtractionFidelity.L2_SYMBOL_RESOLVED)
                         .location(sourcePath.toString())
                         .build();
-                nodeFacts.add(new NodeFact(id, NodeType.FUNCTION, Map.of(), List.of(declarationEvidence)));
+                List<Evidence> methodEvidence = new ArrayList<>();
+                methodEvidence.add(declarationEvidence);
+                methodEvidence.addAll(currentOwnerStereotypeEvidence);
+                nodeFacts.add(new NodeFact(id, NodeType.FUNCTION, Map.of(), List.copyOf(methodEvidence)));
                 this.currentMethodId = id.value();
             } else {
                 // No FUNCTION node emitted for an unresolved method declaration
