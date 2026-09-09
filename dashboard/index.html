@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>AERF Scan Dashboard</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header class="page-header">
+    <div class="page-header-inner">
+      <h1>AERF Scan Dashboard</h1>
+      <p class="tagline">Architectural Entropy Reduction Framework &mdash; per-project scan history</p>
+    </div>
+  </header>
+
+  <main class="page-main">
+    <section class="toolbar" aria-label="Project selection">
+      <label for="project-select">Project</label>
+      <select id="project-select" aria-describedby="project-meta">
+        <option value="" disabled selected>Loading projects&hellip;</option>
+      </select>
+      <p id="project-meta" class="project-meta"></p>
+    </section>
+
+    <section id="stat-tiles" class="stat-tiles" hidden aria-label="Latest scan summary"></section>
+
+    <section class="table-section">
+      <div class="table-scroll">
+        <table id="scan-table" aria-label="Scan history">
+          <thead>
+            <tr>
+              <th scope="col">Scanned</th>
+              <th scope="col">Nodes</th>
+              <th scope="col">Edges</th>
+              <th scope="col">Total entropy</th>
+              <th scope="col">Maturity</th>
+              <th scope="col">Confidence</th>
+              <th scope="col">Violations</th>
+              <th scope="col">Skipped invariants</th>
+            </tr>
+          </thead>
+          <tbody id="scan-table-body">
+            <tr><td colspan="8" class="empty-state">Select a project to see its scan history.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <footer class="page-footer">
+    <a href="https://github.com/costinfl/aerf" target="_blank" rel="noopener">costinfl/aerf</a> on GitHub
+  </footer>
+
+  <div id="drawer-backdrop" class="drawer-backdrop" hidden></div>
+  <aside id="drawer" class="drawer" hidden aria-label="Scan detail" aria-hidden="true">
+    <div class="drawer-header">
+      <div>
+        <h2 id="drawer-title">Scan detail</h2>
+        <p id="drawer-subtitle" class="drawer-subtitle"></p>
+      </div>
+      <button id="drawer-close" type="button" aria-label="Close detail panel">&times;</button>
+    </div>
+    <div id="drawer-body" class="drawer-body"></div>
+  </aside>
+
+  <!-- Vendored, not CDN-loaded: see dashboard/vendor/README.md for why. -->
+  <script src="vendor/supabase.js"></script>
+  <script type="module" src="app.js"></script>
+</body>
+</html>

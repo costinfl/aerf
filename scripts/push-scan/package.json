@@ -1,0 +1,14 @@
+{
+  "name": "aerf-push-scan",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Upserts one aerf-pipeline PipelineReport (JSON) into the aerf-db Supabase project, for the scan dashboard.",
+  "type": "module",
+  "main": "push-scan.mjs",
+  "scripts": {
+    "push-scan": "node push-scan.mjs"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.45.4"
+  }
+}

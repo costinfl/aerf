@@ -1,0 +1,386 @@
+/* Design tokens - see the dataviz skill's reference palette.
+   Light values on :root; dark values re-declared under the OS media
+   query AND the explicit [data-theme="dark"] toggle scope, per the
+   skill's own guidance, so a manual theme toggle (if ever added) wins
+   over the OS setting in both directions. This page currently has no
+   toggle UI, so only the media-query block is reachable today - the
+   [data-theme] rule is kept so a future toggle needs no rework here. */
+:root {
+  color-scheme: light;
+  --surface-1: #fcfcfb;
+  --surface-2: #f9f9f7;
+  --text-primary: #0b0b0b;
+  --text-secondary: #52514e;
+  --text-muted: #898781;
+  --gridline: #e1e0d9;
+  --border: rgba(11, 11, 11, 0.10);
+  --border-strong: #c3c2b7;
+
+  --seq-100: #cde2fb;
+  --seq-250: #86b6ef;
+  --seq-450: #2a78d6;
+  --seq-600: #184f95;
+
+  --status-good: #0ca30c;
+  --status-warning: #fab219;
+  --status-serious: #ec835a;
+  --status-critical: #d03b3b;
+
+  --cat-1: #2a78d6; /* PRESENTATION */
+  --cat-2: #eb6834; /* APPLICATION */
+  --cat-3: #1baf7a; /* DOMAIN */
+  --cat-4: #eda100; /* PERSISTENCE */
+  --cat-5: #e87ba4; /* INFRASTRUCTURE */
+  --cat-6: #008300; /* EXTERNAL */
+  --cat-7: #4a3aa7; /* UNKNOWN */
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --surface-1: #1a1a19;
+    --surface-2: #0d0d0d;
+    --text-primary: #ffffff;
+    --text-secondary: #c3c2b7;
+    --text-muted: #898781;
+    --gridline: #2c2c2a;
+    --border: rgba(255, 255, 255, 0.10);
+    --border-strong: #383835;
+
+    --seq-100: #b7d3f6;
+    --seq-250: #6da7ec;
+    --seq-450: #3987e5;
+    --seq-600: #184f95;
+
+    --status-good: #0ca30c;
+    --status-warning: #fab219;
+    --status-serious: #ec835a;
+    --status-critical: #e66767;
+
+    --cat-1: #3987e5;
+    --cat-2: #d95926;
+    --cat-3: #199e70;
+    --cat-4: #c98500;
+    --cat-5: #d55181;
+    --cat-6: #008300;
+    --cat-7: #9085e9;
+  }
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--surface-2);
+  color: var(--text-primary);
+  font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+.page-header {
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-1);
+}
+.page-header-inner {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 28px 24px 20px;
+}
+.page-header h1 {
+  margin: 0 0 4px;
+  font-size: 22px;
+  font-weight: 700;
+}
+.tagline {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 14px;
+}
+
+.page-main {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 24px;
+}
+
+.toolbar {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 24px;
+}
+.toolbar label {
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+.toolbar select {
+  font: inherit;
+  font-size: 14px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border-strong);
+  background: var(--surface-1);
+  color: var(--text-primary);
+  min-width: 240px;
+}
+.project-meta {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.stat-tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px;
+  margin-bottom: 24px;
+}
+.stat-tile {
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 14px 16px;
+}
+.stat-tile .stat-label {
+  margin: 0 0 6px;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--text-muted);
+}
+.stat-tile .stat-value {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 700;
+  font-variant-numeric: proportional-nums;
+}
+.stat-tile .stat-sub {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.table-section {
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+}
+.table-scroll {
+  overflow-x: auto;
+}
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13.5px;
+}
+thead th {
+  text-align: left;
+  padding: 10px 14px;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--gridline);
+  white-space: nowrap;
+}
+tbody td {
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--gridline);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+tbody tr:last-child td { border-bottom: none; }
+tbody tr[data-clickable] { cursor: pointer; }
+tbody tr[data-clickable]:hover { background: var(--surface-2); }
+tbody tr[data-clickable]:focus-visible { outline: 2px solid var(--seq-450); outline-offset: -2px; }
+.empty-state {
+  color: var(--text-muted);
+  white-space: normal !important;
+  padding: 24px 14px !important;
+}
+
+.value-undefined { color: var(--text-muted); font-style: italic; }
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+}
+.badge::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+}
+.badge-good { color: var(--status-good); background: color-mix(in srgb, var(--status-good) 14%, transparent); }
+.badge-critical { color: var(--status-critical); background: color-mix(in srgb, var(--status-critical) 14%, transparent); }
+.badge-neutral { color: var(--text-muted); background: color-mix(in srgb, var(--text-muted) 14%, transparent); }
+
+/* Drawer */
+.drawer-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.35);
+  z-index: 10;
+}
+.drawer {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: min(560px, 100vw);
+  background: var(--surface-1);
+  border-left: 1px solid var(--border);
+  box-shadow: -8px 0 24px rgba(0, 0, 0, 0.15);
+  z-index: 11;
+  display: flex;
+  flex-direction: column;
+  transform: translateX(0);
+}
+/* [hidden] has the same specificity as .drawer/.drawer-backdrop alone, so
+   without this the drawer's own `display: flex` would win over the
+   browser's default `[hidden] { display: none }` and the panel would
+   stay visible - toggling the hidden attribute from JS would do
+   nothing. The extra attribute selector here raises specificity above
+   the base rule regardless of source order. */
+.drawer[hidden],
+.drawer-backdrop[hidden] {
+  display: none;
+}
+.drawer-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 20px 20px 16px;
+  border-bottom: 1px solid var(--gridline);
+}
+.drawer-header h2 { margin: 0; font-size: 17px; }
+.drawer-subtitle { margin: 4px 0 0; color: var(--text-secondary); font-size: 13px; }
+#drawer-close {
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 6px;
+}
+#drawer-close:hover { background: var(--surface-2); }
+.drawer-body {
+  overflow-y: auto;
+  padding: 16px 20px 32px;
+  flex: 1;
+}
+
+.drawer-section { margin-bottom: 24px; }
+.drawer-section h3 {
+  margin: 0 0 10px;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+}
+
+.metric-row {
+  display: grid;
+  grid-template-columns: 130px 1fr auto;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 0;
+  font-size: 13.5px;
+}
+.metric-row .metric-name { color: var(--text-secondary); }
+.metric-row .metric-value { font-variant-numeric: tabular-nums; font-weight: 600; text-align: right; }
+.meter-track {
+  height: 6px;
+  border-radius: 999px;
+  background: var(--gridline);
+  overflow: hidden;
+}
+.meter-fill {
+  height: 100%;
+  background: var(--seq-450);
+  border-radius: 999px;
+}
+
+.role-bar {
+  display: flex;
+  height: 10px;
+  border-radius: 999px;
+  overflow: hidden;
+  margin-bottom: 10px;
+}
+.role-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  font-size: 12.5px;
+}
+.role-legend-item { display: inline-flex; align-items: center; gap: 6px; color: var(--text-secondary); }
+.role-swatch { width: 9px; height: 9px; border-radius: 2px; flex: none; }
+
+.invariant-item {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--gridline);
+  font-size: 13.5px;
+}
+.invariant-item:last-child { border-bottom: none; }
+.invariant-name { font-weight: 600; }
+.invariant-severity { color: var(--text-muted); font-size: 12px; }
+
+.diagnostics-list, .skipped-list {
+  margin: 0;
+  padding-left: 18px;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+details.raw-json {
+  margin-top: 8px;
+}
+details.raw-json summary {
+  cursor: pointer;
+  font-size: 12.5px;
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+details.raw-json pre {
+  margin-top: 10px;
+  max-height: 320px;
+  overflow: auto;
+  background: var(--surface-2);
+  border: 1px solid var(--gridline);
+  border-radius: 8px;
+  padding: 12px;
+  font-size: 11.5px;
+  line-height: 1.5;
+}
+
+.page-footer {
+  max-width: 1100px;
+  margin: 8px auto 40px;
+  padding: 0 24px;
+  color: var(--text-muted);
+  font-size: 12.5px;
+}
+.page-footer a { color: inherit; }
+
+@media (max-width: 640px) {
+  .metric-row { grid-template-columns: 100px 1fr auto; }
+}
