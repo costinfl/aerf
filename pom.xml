@@ -16,6 +16,7 @@
     <module>aerf-analysis</module>
     <module>aerf-report</module>
     <module>aerf-extraction</module>
+    <module>aerf-openrewrite</module>
   </modules>
 
   <properties>

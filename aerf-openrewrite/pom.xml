@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>org.aerf</groupId>
+    <artifactId>aerf-parent</artifactId>
+    <version>0.1.0-SNAPSHOT</version>
+  </parent>
+
+  <artifactId>aerf-openrewrite</artifactId>
+  <packaging>jar</packaging>
+
+  <name>AERF - OpenRewrite Extraction Adapter</name>
+  <description>
+    The concrete, Java-only extraction adapter AERF v0.4 section 9
+    describes: OpenRewrite does parsing, AST representation, and type
+    resolution; this module translates that into aerf-extraction's
+    NodeFact/EdgeFact facts, which aerf-extraction's GraphAssembler then
+    resolves into a canonical Graph containing no OpenRewrite type
+    anywhere. This is the only AERF module permitted to depend on
+    OpenRewrite (the other modules enforce that mechanically via
+    maven-enforcer-plugin; this one is deliberately exempt from that
+    ban, since carrying the dependency is its entire purpose).
+  </description>
+
+  <dependencies>
+    <dependency>
+      <groupId>org.aerf</groupId>
+      <artifactId>aerf-extraction</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.openrewrite</groupId>
+      <artifactId>rewrite-java</artifactId>
+      <version>8.90.4</version>
+    </dependency>
+    <dependency>
+      <groupId>org.openrewrite</groupId>
+      <artifactId>rewrite-java-21</artifactId>
+      <version>8.90.4</version>
+      <scope>runtime</scope>
+    </dependency>
+    <!--
+      Required, not optional: without an slf4j binding on the classpath,
+      OpenRewrite's internal javac invocation throws NoClassDefFoundError
+      while trying to log a diagnostic (caught internally, but floods
+      stderr with unrelated stack traces) - found during the
+      ExtractionAdapter Plan's Step 0 spike, not assumed.
+    -->
+    <dependency>
+      <groupId>org.slf4j</groupId>
+      <artifactId>slf4j-nop</artifactId>
+      <version>2.0.16</version>
+    </dependency>
+    <dependency>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter</artifactId>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-surefire-plugin</artifactId>
+      </plugin>
+    </plugins>
+  </build>
+</project>

@@ -233,6 +233,24 @@ code must be parsed as data, never compiled by the build.
 context) collides by simple name with `org.aerf.model.ExecutionContext`;
 one must be fully qualified throughout this module.
 
+**Increment 13 — done.** `aerf-openrewrite` module built:
+`JavaClassExtractor` + `TypeTreeNames`, `COMPONENT` nodes and
+`EXTENDS`/`IMPLEMENTS` edges only (`DEPENDS` deferred to Increment 14 —
+recorded and reasoned in `docs/increment-13-openrewrite-class-extraction.md`,
+since it needs the same member-level traversal Increment 14 already
+owns). The `org.openrewrite.ExecutionContext`/`org.aerf.model.ExecutionContext`
+clash did *not* need handling in this increment after all — no
+`org.aerf.model.ExecutionContext` use exists yet in `aerf-openrewrite`,
+so it remains anticipated for Increment 14, not yet actually hit here.
+Only one real spike-to-implementation correction was needed:
+`J.ClassDeclaration.getKind()` returns `Kind.Type` directly (no further
+`.getType()` call), caught immediately by the first compile and
+confirmed via `javap`. 6 new tests; 195 total across the reactor.
+See the increment doc for the JDK-`Serializable` finding — the sharpest
+illustration yet of extractor-level type resolution
+(`ExtractionFidelity`) being distinct from graph-level fact resolution
+(`NodeRef`).
+
 **Increment 14 — method level and execution context.** `FUNCTION` nodes,
 `CALL` edges, and loop-nesting detection setting
 `ExecutionContext.ITERATED`. This makes the N+1 heuristic from Increment
