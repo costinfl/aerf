@@ -94,13 +94,29 @@ public final class Pipeline {
         InvariantEvaluator invariantEvaluator = new InvariantEvaluator();
         Map<String, Double> metricsForInvariants = graphScopeMetrics(totalEntropy);
         List<InvariantEvaluationResult> invariantResults = new ArrayList<>();
+        List<String> skippedInvariants = new ArrayList<>();
         for (Invariant invariant : config.invariants()) {
-            invariantResults.add(invariantEvaluator.evaluate(invariant, graph, metricsForInvariants));
+            if (metricsForInvariants.keySet().containsAll(invariant.referencedMetricNames())) {
+                invariantResults.add(invariantEvaluator.evaluate(invariant, graph, metricsForInvariants));
+            } else {
+                // InvariantEvaluator.evaluate deliberately throws rather
+                // than silently passing or failing when a GRAPH-scope
+                // invariant references a metric that was not supplied
+                // (its own test, aMissingMetricThrowsRatherThanSilentlyPassingOrFailing,
+                // makes this an intentional caller-responsibility contract,
+                // not an oversight) - an undefined entropy dimension is a
+                // real, legitimate outcome (section 3.5/5.1), so this is
+                // the caller honoring that contract: skip rather than
+                // crash, but report the skip rather than let it vanish
+                // silently (section 5.4's own principle, applied to
+                // invariant evaluability rather than edge resolution).
+                skippedInvariants.add(invariant.name());
+            }
         }
 
         return new PipelineReport(graph, roleResult.passes(), layerEntropy, cycleEntropy, persistenceEntropy,
                 securityEntropy, totalEntropy, maturity, maturityLevel, confidence,
-                List.copyOf(invariantResults), extraction.diagnostics());
+                List.copyOf(invariantResults), List.copyOf(skippedInvariants), extraction.diagnostics());
     }
 
     /**

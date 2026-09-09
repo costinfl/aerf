@@ -126,6 +126,8 @@ public final class Main {
                 .put("maturityLevel", report.maturityLevel().map(CalibrationJson::maturityLevel).orElse(JsonValue.JsonNull.INSTANCE))
                 .put("confidence", CalibrationJson.confidence(report.confidence()))
                 .put("invariants", invariants.build())
+                .put("skippedInvariants", new JsonValue.JsonArray(
+                        report.skippedInvariants().stream().map(d -> (JsonValue) new JsonValue.JsonString(d)).toList()))
                 .put("extractionDiagnostics", new JsonValue.JsonArray(
                         report.extractionDiagnostics().stream().map(d -> (JsonValue) new JsonValue.JsonString(d)).toList()))
                 .build();

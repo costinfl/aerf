@@ -81,6 +81,41 @@ class PipelineTest {
     }
 
     @Test
+    void aGraphScopeInvariantIsSkippedRatherThanCrashingWhenItsMetricIsUndefined() {
+        // Increment 18, found by running the pipeline against a real
+        // cloned repository (spring-petclinic): a real Spring Data
+        // repository idiomatically has no explicit @Repository annotation
+        // at all (Spring Data recognizes it by its Repository/JpaRepository
+        // supertype instead), so persistenceEntropy can legitimately come
+        // back undefined on real code even though it never does on this
+        // sample. Reproduced here by weighting security nonzero: this
+        // sample (like petclinic) has no VIEW node, so securityEntropy is
+        // always undefined, which - unweighted at 0 as config() does -
+        // AggregatedEntropy would otherwise treat as making total_entropy
+        // undefined too, and InvariantEvaluator.evaluate deliberately
+        // throws for a GRAPH-scope invariant whose metric is missing.
+        // Pipeline must not crash: it must skip entropy_budget and report
+        // the skip, not let it vanish or blow up the whole run.
+        CalibrationProfile calibrationProfileWithSecurityWeighted = CalibrationProfile.of(List.of(
+                new WeightedDimension("layer", 0.25, new LinearCalibration()),
+                new WeightedDimension("cycle", 0.25, new LinearCalibration()),
+                new WeightedDimension("persistence", 0.25, new LinearCalibration()),
+                new WeightedDimension("security", 0.25, new LinearCalibration())));
+        PipelineConfig baseConfig = config();
+        PipelineConfig config = new PipelineConfig(
+                baseConfig.sourceRoots(), baseConfig.classpath(), baseConfig.seedRules(),
+                baseConfig.refinementRules(), baseConfig.layerPolicy(), baseConfig.includeSelfCyclesInCycleEntropy(),
+                baseConfig.securityRules(), calibrationProfileWithSecurityWeighted, baseConfig.invariants());
+
+        PipelineReport report = Pipeline.run(config);
+
+        assertTrue(report.totalEntropy().isEmpty());
+        assertEquals(List.of("entropy_budget"), report.skippedInvariants());
+        assertTrue(report.invariantResults().stream().anyMatch(r -> r.invariantName().equals("no_presentation_to_persistence")),
+                "an invariant referencing no metric must still be evaluated normally");
+    }
+
+    @Test
     void findsTheDirectPresentationToPersistenceLayeringViolation() {
         PipelineReport report = Pipeline.run(config());
 

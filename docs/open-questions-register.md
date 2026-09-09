@@ -35,6 +35,34 @@ seed rule fires for at all but its neighbors imply a role — still needs
 either a larger/adversarial sample or a real cloned repository
 (Increment 16) to surface.
 
+*A real failure case found in Increment 18.* Ran the pipeline against
+`spring-projects/spring-petclinic` (a real, idiomatic Spring Boot
+application, real classpath supplied). Result: every one of its
+repository interfaces (`OwnerRepository`, `PetTypeRepository`,
+`VetRepository`) — genuinely Persistence-role code, verified by reading
+the source — got `Role.UNKNOWN`, along with every domain entity
+(`Owner`, `Pet`, `Vet`, `Visit`) and the whole rest of the codebase
+except the 8 `@Controller` classes (43 of 118 nodes classified, all
+`PRESENTATION`; 0 `PERSISTENCE`, `APPLICATION`, or `DOMAIN` anywhere).
+Root cause, confirmed by reading the actual source: idiomatic Spring
+Data repositories don't carry an explicit `@Repository` annotation at
+all — `VetRepository extends Repository<Vet, Integer>`,
+`OwnerRepository extends JpaRepository<Owner, Integer>` — Spring Data
+recognizes them by their **marker-interface supertype**, not a
+stereotype annotation. `DefaultSeedRules`' only persistence rule
+(`PersistenceBySpringDataAdapter`) looks for `sourceAdapter ==
+"spring-data"` evidence, which `JavaSourceExtractor` only ever emits for
+an explicit `@Repository`. And `DefaultGraphRefinementRules`'
+`InheritRoleFromSupertype` can't rescue this either: `Repository`/
+`JpaRepository` are themselves external (never extracted as `NodeFact`s,
+so no graph node exists for a role to be inherited *from*). **This is
+the genuine failure case this question asked for**: not a case seed and
+refinement together get wrong, but a large, extremely common real-world
+category (Spring Data repositories) neither can see at all under the
+current rule catalog. See new question #18 for the concrete follow-up
+this implies. `docs/increment-18-real-repository-run.md` has the full
+run.
+
 ### 2. Rule authorship boundary for the "Governance" evidence class
 
 *From: Increment 2, still open after Increment 4.* §3.3 names four
@@ -180,6 +208,27 @@ should gain a structural declares-type relation, whether role inference
 should gain a dedicated "inherits from declaring node" rule instead, or
 whether evidence-time propagation (this increment's choice) is
 accepted as the intended mechanism going forward.
+
+### 18. Should `DefaultSeedRules` recognize Spring Data repositories by marker-interface inheritance, not only by `@Repository`?
+
+*From: Increment 18.* Direct follow-up to #1's real finding: idiomatic
+Spring Data repository interfaces (`extends Repository<T, ID>` /
+`JpaRepository<T, ID>` / `CrudRepository<T, ID>`, etc.) carry no
+`@Repository` annotation and are therefore invisible to
+`PersistenceBySpringDataAdapter` entirely. A plausible fix is a new seed
+rule matching a resolved `EXTENDS`/`IMPLEMENTS` target's fully-qualified
+name against Spring Data's own marker-interface family
+(`org.springframework.data.repository.Repository` and its known
+subinterfaces) — structurally similar to `InheritRoleFromSupertype`
+but as a *seed* rule (matching an external, unextracted type by FQN)
+rather than a graph-refinement rule (which only works between two nodes
+both already in the graph). Not attempted in Increment 18: choosing
+which marker interfaces to hard-code, whether to match transitively
+(a custom `interface MyRepo extends JpaRepository<...>` one layer removed
+from the real marker), and whether this belongs in `DefaultSeedRules`
+(illustrative, not part of v0.4) or should be a documented pattern for
+adapters generally, are all real design decisions a future increment
+should make deliberately rather than as a side effect of a bug fix.
 
 ---
 
