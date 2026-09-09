@@ -68,6 +68,9 @@ import java.util.stream.Stream;
 public final class JavaSourceExtractor implements SourceExtractor {
 
     private static final String ADAPTER_NAME = "openrewrite-java";
+    private static final String SPRING_CONTROLLER_ANNOTATION = "org.springframework.stereotype.Controller";
+    private static final String SPRING_SERVICE_ANNOTATION = "org.springframework.stereotype.Service";
+    private static final String SPRING_REPOSITORY_ANNOTATION = "org.springframework.stereotype.Repository";
 
     @Override
     public ExtractionResult extract(ExtractionRequest request) {
@@ -153,7 +156,10 @@ public final class JavaSourceExtractor implements SourceExtractor {
                                 ExtractionFidelity.L2_SYMBOL_RESOLVED)
                         .location(sourcePath.toString())
                         .build();
-                nodeFacts.add(new NodeFact(id, NodeType.COMPONENT, Map.of(), List.of(declarationEvidence)));
+                List<Evidence> classEvidence = new ArrayList<>();
+                classEvidence.add(declarationEvidence);
+                classEvidence.addAll(springStereotypeEvidence(classDecl.getLeadingAnnotations()));
+                nodeFacts.add(new NodeFact(id, NodeType.COMPONENT, Map.of(), List.copyOf(classEvidence)));
 
                 if (classDecl.getExtends() != null) {
                     edgeFacts.add(typeEdge(ownFqn, classDecl.getExtends(), RelationType.EXTENDS));
@@ -298,6 +304,46 @@ public final class JavaSourceExtractor implements SourceExtractor {
                     .location(sourcePath.toString())
                     .build();
             return new EdgeFact(SymbolRef.of(ownFqn), SymbolRef.of(key, printedName), relation, List.of(edgeEvidence));
+        }
+
+        /**
+         * Structured evidence for the three Spring stereotype annotations
+         * {@code DefaultSeedRules} already knows how to read — literally
+         * the {@code sourceAdapter} strings ("spring", "spring-data") and
+         * {@code annotation} attribute key those rules match on (AERF
+         * v0.4.1 patch Amendment 5), so this adapter's real evidence
+         * satisfies rules written well before any adapter existed, with no
+         * rule-side change. Only an annotation whose type resolved to
+         * exactly one of these three FQNs produces evidence; every other
+         * annotation (including an unresolved one that merely looks like
+         * {@code @Controller} by simple name) is silently skipped, not
+         * guessed at — matching a real FQN, not a name, is what makes this
+         * conservative rather than a heuristic that could misattribute an
+         * unrelated framework's same-named annotation.
+         */
+        private List<Evidence> springStereotypeEvidence(List<J.Annotation> annotations) {
+            List<Evidence> evidence = new ArrayList<>();
+            for (J.Annotation annotation : annotations) {
+                JavaType type = annotation.getType();
+                if (!isResolved(type)) {
+                    continue;
+                }
+                String fqn = ((JavaType.FullyQualified) type).getFullyQualifiedName();
+                String sourceAdapter = switch (fqn) {
+                    case SPRING_CONTROLLER_ANNOTATION, SPRING_SERVICE_ANNOTATION -> "spring";
+                    case SPRING_REPOSITORY_ANNOTATION -> "spring-data";
+                    default -> null;
+                };
+                if (sourceAdapter == null) {
+                    continue;
+                }
+                evidence.add(Evidence.builder(sourceAdapter, "@" + annotation.getSimpleName() + " annotation observed",
+                                ExtractionFidelity.L2_SYMBOL_RESOLVED)
+                        .location(sourcePath.toString())
+                        .attribute("annotation", fqn)
+                        .build());
+            }
+            return evidence;
         }
 
         private static NodeId functionId(JavaType.Method methodType) {

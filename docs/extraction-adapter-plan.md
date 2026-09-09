@@ -278,6 +278,25 @@ structured annotation attributes so role inference works on real source,
 replacing Increment 2's invented test strings with adapter-produced
 evidence. This is where open question #1 finally gets real data.
 
+**Increment 15 — done.** `JavaSourceExtractor` emits structured
+`Evidence` for exactly the three Spring stereotypes `DefaultSeedRules`
+already reads (`@Controller`/`@Service`/`@Repository`, via
+`sourceAdapter`="spring"/"spring-data" and the `annotation` attribute),
+matched by resolved FQN only — never by simple name, to stay
+conservative. Three local stub annotation source files
+(`org/springframework/stereotype/*.java`) give the sample project a
+real, resolvable `org.springframework.stereotype.*` package with zero
+network access, exactly the "local stub Spring annotation source files"
+this plan anticipated. A new end-to-end test runs extraction →
+`GraphAssembler` → `SeedRoleInferenceEngine` with unmodified,
+Increment-2-era `DefaultSeedRules` and gets real `PRESENTATION`/
+`APPLICATION`/`PERSISTENCE` roles out — the first time role inference
+has run on anything but hand-built test evidence. Open question #1 gets
+real data as predicted, but not yet a failure case (the sample's three
+stereotyped classes are each unambiguous under seed rules alone) —
+recorded as still open in `open-questions-register.md`, with the
+specific gap named. 5 new tests; 203 total across the reactor.
+
 **Increment 16 — pipeline runner and CI.** An end-to-end entry point
 (extraction → role inference → metrics → invariants → calibration →
 JSON), plus a GitHub Actions workflow. The repo has **no CI at all**

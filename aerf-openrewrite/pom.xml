@@ -60,6 +60,20 @@
       <artifactId>junit-jupiter</artifactId>
       <scope>test</scope>
     </dependency>
+    <!--
+      Test-only, and in the opposite direction from every other dependency
+      in this module: aerf-analysis's own maven-enforcer ban forbids it
+      from ever depending on OpenRewrite, but nothing forbids this module
+      from depending on aerf-analysis to prove its real extracted evidence
+      actually drives DefaultSeedRules' role inference end to end
+      (Increment 15) - the two directions are independent.
+    -->
+    <dependency>
+      <groupId>org.aerf</groupId>
+      <artifactId>aerf-analysis</artifactId>
+      <version>${project.version}</version>
+      <scope>test</scope>
+    </dependency>
   </dependencies>
 
   <build>

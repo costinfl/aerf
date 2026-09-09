@@ -21,6 +21,20 @@ inference alone) gives a wrong answer that graph-relationship refinement
 to test iteration mechanically. Needs real evidence from running against
 an actual codebase — not resolvable from first principles.
 
+*Still open after Increment 15.* Real, parsed, annotation-driven evidence
+now exists (`JavaSourceExtractor`'s Spring stereotype detection) and
+`realExtractedEvidenceDrivesSeedRoleInferenceEndToEnd` proves
+`DefaultSeedRules` classifies it correctly — but the sample project's
+three annotated classes are exactly the shape `R^(0)` already handles
+correctly (one stereotype each, no seed-rule conflict, nothing needing
+graph-relationship refinement to resolve). This is one real data point,
+not a counter-example: it demonstrates the pipeline works end-to-end on
+real code, not that seed-only classification is sufficient in general.
+A genuine failure case — a node two seed rules disagree on, or one no
+seed rule fires for at all but its neighbors imply a role — still needs
+either a larger/adversarial sample or a real cloned repository
+(Increment 16) to surface.
+
 ### 2. Rule authorship boundary for the "Governance" evidence class
 
 *From: Increment 2, still open after Increment 4.* §3.3 names four

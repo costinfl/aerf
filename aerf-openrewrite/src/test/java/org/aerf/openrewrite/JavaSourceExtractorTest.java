@@ -1,5 +1,7 @@
 package org.aerf.openrewrite;
 
+import org.aerf.analysis.role.SeedRoleInferenceEngine;
+import org.aerf.analysis.role.seed.DefaultSeedRules;
 import org.aerf.extraction.ExtractionRequest;
 import org.aerf.extraction.ExtractionResult;
 import org.aerf.extraction.GraphAssembler;
@@ -12,6 +14,7 @@ import org.aerf.model.NodeId;
 import org.aerf.model.NodeRef;
 import org.aerf.model.NodeType;
 import org.aerf.model.RelationType;
+import org.aerf.model.Role;
 import org.junit.jupiter.api.Test;
 
 import java.net.URISyntaxException;
@@ -56,13 +59,21 @@ class JavaSourceExtractorTest {
     }
 
     @Test
-    void extractsAllSixComponentNodesWithoutAClasspath() {
+    void extractsAllApplicationComponentNodesWithoutAClasspath() {
+        // 10 total: the 7 com.example.* types below plus the 3 local
+        // org.springframework.stereotype.* annotation-type stubs
+        // (Controller/Service/Repository) - an annotation type declaration
+        // is itself a J.ClassDeclaration (Kind.Type.Annotation), so it
+        // correctly gets its own COMPONENT node too, incidental to this
+        // increment's real purpose but not filtered out (section 8: this
+        // extractor doesn't get to decide a real declared type in the
+        // batch is uninteresting).
         Graph graph = extractSample(List.of());
 
-        assertEquals(6, graph.nodes().stream().filter(n -> n.type() == NodeType.COMPONENT).count());
+        assertEquals(10, graph.nodes().stream().filter(n -> n.type() == NodeType.COMPONENT).count());
         for (String fqn : List.of("com.example.BaseEntity", "com.example.Order",
                 "com.example.OrderRepository", "com.example.OrderRepositoryImpl", "com.example.LegacyWidget",
-                "com.example.OrderService")) {
+                "com.example.OrderService", "com.example.OrderController")) {
             NodeId id = JavaNodeIds.type(fqn);
             Optional<Node> node = graph.node(id);
             assertTrue(node.isPresent(), fqn + " should have been extracted as a COMPONENT node");
@@ -145,6 +156,55 @@ class JavaSourceExtractorTest {
                 ExtractionFidelity.L2_SYMBOL_RESOLVED);
         assertResolvedTypeEdge(graph, "com.example.OrderService", "com.example.LegacyWidget", RelationType.DEPENDS,
                 ExtractionFidelity.L2_SYMBOL_RESOLVED);
+    }
+
+    @Test
+    void emitsStructuredEvidenceMatchingDefaultSeedRulesForEachSpringStereotype() {
+        Graph graph = extractSample(List.of());
+
+        Node controller = graph.node(JavaNodeIds.type("com.example.OrderController")).orElseThrow();
+        assertTrue(controller.evidence().stream().anyMatch(e -> e.sourceAdapter().equals("spring")
+                && "org.springframework.stereotype.Controller".equals(e.attributes().get("annotation"))));
+
+        Node service = graph.node(JavaNodeIds.type("com.example.OrderService")).orElseThrow();
+        assertTrue(service.evidence().stream().anyMatch(e -> e.sourceAdapter().equals("spring")
+                && "org.springframework.stereotype.Service".equals(e.attributes().get("annotation"))));
+
+        Node repositoryImpl = graph.node(JavaNodeIds.type("com.example.OrderRepositoryImpl")).orElseThrow();
+        assertTrue(repositoryImpl.evidence().stream().anyMatch(e -> e.sourceAdapter().equals("spring-data")
+                && "org.springframework.stereotype.Repository".equals(e.attributes().get("annotation"))));
+    }
+
+    @Test
+    void doesNotEmitStereotypeEvidenceForATypeWithNoSpringAnnotation() {
+        // BaseEntity carries no Spring stereotype annotation at all - the
+        // negative control for the previous test, so a false positive
+        // (evidence appearing regardless of what's actually annotated)
+        // wouldn't slip by unnoticed.
+        Graph graph = extractSample(List.of());
+
+        Node baseEntity = graph.node(JavaNodeIds.type("com.example.BaseEntity")).orElseThrow();
+        assertTrue(baseEntity.evidence().stream().noneMatch(e -> e.sourceAdapter().equals("spring")
+                || e.sourceAdapter().equals("spring-data")));
+    }
+
+    @Test
+    void realExtractedEvidenceDrivesSeedRoleInferenceEndToEnd() {
+        // The payoff this increment exists for: DefaultSeedRules (written
+        // in Increment 2, long before any real adapter existed) correctly
+        // classifies real, parsed, annotation-driven evidence with no
+        // rule-side change at all - open question #1 ("when does
+        // seed-only role classification actually fail?") finally has real
+        // data to run against, even though this one sample doesn't happen
+        // to expose a failure case itself.
+        Graph graph = extractSample(List.of());
+        SeedRoleInferenceEngine engine = new SeedRoleInferenceEngine(DefaultSeedRules.illustrativeRules());
+        Graph withRoles = engine.inferAndApply(graph);
+
+        assertEquals(Role.PRESENTATION, withRoles.node(JavaNodeIds.type("com.example.OrderController")).orElseThrow().role());
+        assertEquals(Role.APPLICATION, withRoles.node(JavaNodeIds.type("com.example.OrderService")).orElseThrow().role());
+        assertEquals(Role.PERSISTENCE, withRoles.node(JavaNodeIds.type("com.example.OrderRepositoryImpl")).orElseThrow().role());
+        assertEquals(Role.UNKNOWN, withRoles.node(JavaNodeIds.type("com.example.BaseEntity")).orElseThrow().role());
     }
 
     @Test
