@@ -24,11 +24,14 @@ jobs:
 
 # A second job running the analysis pipeline (aerf-pipeline's Main) against
 # a real cloned repository was part of the ExtractionAdapter Plan's
-# Increment 16 scope, but is deliberately NOT added here yet: it is gated
-# on an iterative rewrite of StronglyConnectedComponents (open question #7
-# in docs/open-questions-register.md) - the current recursive Tarjan
-# implementation will stack-overflow on a sufficiently deep dependency
-# chain, which a small synthetic sample never exercises but a real
-# repository of nontrivial size plausibly would. Adding this job before
-# that gate is closed would risk a flaky, hard-to-diagnose CI failure
-# rather than a real signal. See docs/increment-16-*.md.
+# Increment 16 scope, but was deliberately NOT added there: it was gated
+# on an iterative rewrite of StronglyConnectedComponents, since the
+# recursive Tarjan implementation then in use would stack-overflow on a
+# sufficiently deep dependency chain - a risk a small synthetic sample
+# never exercises but a real repository of nontrivial size plausibly
+# would. That rewrite is done (Increment 17, docs/increment-17-*.md;
+# formerly open question #7, now resolved), so the gate itself is closed.
+# This job is still not added here, though: doing so is its own increment
+# (choosing a target repository, classpath discovery, what a meaningful
+# pass/fail signal even means for exploratory analysis output) that
+# nobody has asked for yet, not a continuation of removing this gate.

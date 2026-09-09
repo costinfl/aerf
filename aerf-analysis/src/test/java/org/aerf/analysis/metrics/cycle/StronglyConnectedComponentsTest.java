@@ -91,6 +91,66 @@ class StronglyConnectedComponentsTest {
     }
 
     @Test
+    void aVeryDeepLinearChainDoesNotOverflowTheStack() {
+        // Deep enough that the prior recursive strongConnect(v) would
+        // reliably StackOverflowError on a default JVM stack (empirically
+        // a few thousand frames) - this is the direct regression test for
+        // open question #7's iterative rewrite (ExtractionAdapter Plan
+        // Increment 17), not just a correctness check.
+        int depth = 200_000;
+        Graph.Builder builder = Graph.builder();
+        for (int i = 0; i < depth; i++) {
+            builder.addNode(node("n" + i));
+        }
+        for (int i = 0; i < depth - 1; i++) {
+            builder.addEdge(NodeRef.resolved(NodeId.of("n" + i)), NodeRef.resolved(NodeId.of("n" + (i + 1))),
+                    RelationType.CALL, List.of());
+        }
+        Graph graph = builder.build();
+
+        List<Set<NodeId>> sccs = StronglyConnectedComponents.find(graph, EnumSet.of(RelationType.CALL));
+
+        assertEquals(depth, sccs.size());
+        assertTrue(sccs.stream().allMatch(scc -> scc.size() == 1));
+    }
+
+    @Test
+    void aVeryDeepChainFeedingIntoACycleAtItsEndIsStillFoundCorrectly() {
+        // Depth alone proved Increment 17's rewrite doesn't crash; this
+        // proves it is still correct at depth, not merely non-crashing -
+        // the cycle at the far end of a long chain must still be found,
+        // and lowlink must still propagate correctly across 200,000
+        // frames' worth of unwinding.
+        int chainLength = 200_000;
+        Graph.Builder builder = Graph.builder();
+        for (int i = 0; i < chainLength; i++) {
+            builder.addNode(node("n" + i));
+        }
+        builder.addNode(node("cycleA")).addNode(node("cycleB"));
+        for (int i = 0; i < chainLength - 1; i++) {
+            builder.addEdge(NodeRef.resolved(NodeId.of("n" + i)), NodeRef.resolved(NodeId.of("n" + (i + 1))),
+                    RelationType.CALL, List.of());
+        }
+        builder.addEdge(NodeRef.resolved(NodeId.of("n" + (chainLength - 1))), NodeRef.resolved(NodeId.of("cycleA")),
+                RelationType.CALL, List.of());
+        builder.addEdge(NodeRef.resolved(NodeId.of("cycleA")), NodeRef.resolved(NodeId.of("cycleB")),
+                RelationType.CALL, List.of());
+        builder.addEdge(NodeRef.resolved(NodeId.of("cycleB")), NodeRef.resolved(NodeId.of("cycleA")),
+                RelationType.CALL, List.of());
+        Graph graph = builder.build();
+
+        List<Set<NodeId>> sccs = StronglyConnectedComponents.find(graph, EnumSet.of(RelationType.CALL));
+
+        long nonTrivial = sccs.stream().filter(scc -> scc.size() > 1).count();
+        assertEquals(1, nonTrivial);
+        Set<NodeId> cycle = sccs.stream().filter(scc -> scc.size() > 1).findFirst().orElseThrow();
+        assertEquals(Set.of(NodeId.of("cycleA"), NodeId.of("cycleB")), cycle);
+        // chainLength trivial singletons (n0..n_{chainLength-1}) plus one
+        // non-trivial SCC for {cycleA, cycleB}.
+        assertEquals(chainLength + 1, sccs.size());
+    }
+
+    @Test
     void anUnresolvedEndpointNeverParticipates() {
         Graph graph = Graph.builder()
                 .addNode(node("a"))

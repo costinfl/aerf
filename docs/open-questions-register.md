@@ -75,14 +75,6 @@ might reasonably tolerate cycles within one module while forbidding them
 across module boundaries. Not attempted; would be a
 governance-configuration extension analogous to `LayerPolicy`.
 
-### 7. `StronglyConnectedComponents`'s recursive implementation and stack depth
-
-*From: Increment 5.* Pure implementation debt, not a spec question: the
-recursive Tarjan's implementation will stack-overflow on a sufficiently
-deep (but perfectly ordinary, non-cyclic) dependency chain. Needs an
-iterative rewrite before running against a real system of nontrivial
-size.
-
 ### 8. Should the N+1 heuristic also constrain the *source* side, not just the target's role?
 
 *From: Increment 6.* `PersistenceEntropyCalculator` only requires the
@@ -193,6 +185,11 @@ accepted as the intended mechanism going forward.
 
 ## Resolved (moved to the v0.4.1 patch, kept here for traceability)
 
+- ~~`StronglyConnectedComponents`'s recursive implementation and stack
+  depth~~ → resolved by an iterative rewrite (not a spec amendment - pure
+  implementation debt), `docs/increment-17-*.md`. Verified against a
+  200,000-node chain that reliably `StackOverflowError`s the old
+  recursive version on a default JVM stack.
 - ~~What does "evidence-weighted" mean for the N+1 score?~~ → Amendment
   3, `aerf-v0.4.1-patch.md`.
 - ~~Does the layer-entropy matrix derive from an ordering?~~ → Amendment
