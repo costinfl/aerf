@@ -315,6 +315,56 @@ tbody tr[data-clickable]:focus-visible { outline: 2px solid var(--seq-450); outl
   border-radius: 999px;
 }
 
+/* Info icons + shared tooltip. A single floating tooltip element is
+   positioned near whichever icon was activated, rather than one
+   tooltip per icon, since this dashboard's metric labels repeat across
+   the stat tiles, the table header, and the drawer - one shared
+   element keeps the markup and the positioning logic in one place. */
+.info-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 15px;
+  height: 15px;
+  margin-left: 4px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: var(--gridline);
+  color: var(--text-secondary);
+  font-size: 10.5px;
+  font-weight: 700;
+  font-style: normal;
+  line-height: 1;
+  cursor: pointer;
+  vertical-align: middle;
+  flex: none;
+}
+.info-icon:hover,
+.info-icon:focus-visible,
+.info-icon[aria-expanded="true"] {
+  background: var(--seq-450);
+  color: #fff;
+  outline: none;
+}
+th .info-icon { text-transform: none; letter-spacing: normal; }
+
+.metric-tooltip {
+  position: fixed;
+  z-index: 20;
+  max-width: 260px;
+  background: var(--text-primary);
+  color: var(--surface-1);
+  font-size: 12.5px;
+  font-weight: 400;
+  line-height: 1.45;
+  text-transform: none;
+  letter-spacing: normal;
+  padding: 9px 12px;
+  border-radius: 8px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
+}
+
 .role-bar {
   display: flex;
   height: 10px;

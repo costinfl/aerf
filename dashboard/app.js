@@ -12,6 +12,35 @@ const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
   auth: { persistSession: false },
 });
 
+// Plain-English explanations for the metric labels below - AERF's own
+// vocabulary (entropy, maturity, confidence, invariants) reads as
+// jargon without them. Shown via a shared tooltip (see wireInfoIcons)
+// activated by an "i" button next to the label it explains.
+const METRIC_INFO = {
+  roleRefinement:
+    'How many extra passes were needed to work out architectural roles from graph relationships (e.g. inheriting a role from a supertype), beyond what annotations alone could seed directly.',
+  layerEntropy:
+    "Share of layer-relevant calls/dependencies that skip past an architectural layer (e.g. a UI class calling a data-access class directly). 0 = fully layered. Undefined when there's nothing relevant to measure.",
+  cycleEntropy: 'Share of nodes caught in a circular dependency. 0 = no cycles found.',
+  persistenceEntropy:
+    'Share of calls into persistence code that happen inside a loop - a common "N+1" performance mistake, one query per item instead of one query total. Undefined when no persistence calls were found at all.',
+  securityEntropy:
+    'Share of applicable security-relevant code (like view rendering) where a real weakness was detected. Undefined when nothing applicable was found.',
+  totalEntropy:
+    'All the entropy numbers above, combined by weight into one score. 0 = no measured drift. Undefined if any weighted dimension is itself undefined.',
+  maturity: '1 minus total entropy - a simple, inverted view of the same score. Higher is better.',
+  confidence:
+    "Share of extracted relationships where both ends were identified. Lower usually means more calls into third-party/JDK code that was never itself scanned - not a defect, just a reason to read the other numbers with that in mind.",
+  violations:
+    'A governance rule (e.g. "the UI layer must never call persistence directly") that was checked against this scan and found broken.',
+  skippedInvariants:
+    "A rule that couldn't be checked this run because a number it depends on was undefined (see Total entropy) - not a violation, just not evaluable this time.",
+};
+
+function infoIcon(key) {
+  return `<button class="info-icon" type="button" data-info="${escapeHtml(key)}" aria-label="What is this?">i</button>`;
+}
+
 const ROLE_COLORS = {
   PRESENTATION: 'var(--cat-1)',
   APPLICATION: 'var(--cat-2)',
@@ -32,6 +61,7 @@ const drawerBody = document.getElementById('drawer-body');
 const drawerTitle = document.getElementById('drawer-title');
 const drawerSubtitle = document.getElementById('drawer-subtitle');
 const drawerClose = document.getElementById('drawer-close');
+const metricTooltip = document.getElementById('metric-tooltip');
 
 let currentScans = [];
 let currentProjects = [];
@@ -42,9 +72,13 @@ async function init() {
   drawerClose.addEventListener('click', closeDrawer);
   drawerBackdrop.addEventListener('click', closeDrawer);
   document.addEventListener('keydown', (event) => {
-    if (event.key === 'Escape') closeDrawer();
+    if (event.key === 'Escape') {
+      closeDrawer();
+      hideTooltip();
+    }
   });
   projectSelect.addEventListener('change', () => loadScans(projectSelect.value));
+  wireInfoIcons();
 
   try {
     const { data, error } = await supabaseClient.from('projects').select('id, name, repo_url').order('name');
@@ -100,20 +134,21 @@ async function loadScans(projectId) {
 function renderStatTiles(latest) {
   statTiles.hidden = false;
   statTiles.innerHTML = [
-    statTile('Total entropy', formatRatio(latest.total_entropy)),
-    statTile('Maturity', formatRatio(latest.maturity), latest.maturity_level ?? ''),
-    statTile('Confidence', formatRatio(latest.confidence)),
+    statTile('Total entropy', 'totalEntropy', formatRatio(latest.total_entropy)),
+    statTile('Maturity', 'maturity', formatRatio(latest.maturity), latest.maturity_level ?? ''),
+    statTile('Confidence', 'confidence', formatRatio(latest.confidence)),
     statTile(
       'Invariant violations',
+      'violations',
       String(latest.invariant_violation_count),
       violationBadge(latest.invariant_violation_count).outerHTML,
     ),
   ].join('');
 }
 
-function statTile(label, value, sub = '') {
+function statTile(label, infoKey, value, sub = '') {
   return `<div class="stat-tile">
-    <p class="stat-label">${escapeHtml(label)}</p>
+    <p class="stat-label">${escapeHtml(label)} ${infoIcon(infoKey)}</p>
     <p class="stat-value">${value}</p>
     ${sub ? `<p class="stat-sub">${sub}</p>` : ''}
   </div>`;
@@ -174,6 +209,68 @@ function closeDrawer() {
   drawer.hidden = true;
   drawerBackdrop.hidden = true;
   drawer.setAttribute('aria-hidden', 'true');
+  hideTooltip();
+}
+
+/**
+ * One shared tooltip, positioned near whichever info icon was
+ * activated, rather than a separate tooltip element per icon - the
+ * same metric label (and so the same icon) can appear in the stat
+ * tiles, the table header, and the drawer, and both the table and the
+ * drawer re-render their whole innerHTML on every scan/row change, so
+ * delegating from `document` (rather than binding a listener per icon)
+ * is what keeps this working after a re-render without re-wiring.
+ */
+function wireInfoIcons() {
+  document.addEventListener('click', (event) => {
+    const icon = event.target.closest('.info-icon');
+    if (icon) {
+      event.stopPropagation();
+      const key = icon.dataset.info;
+      if (metricTooltip.dataset.for === key && !metricTooltip.hidden) {
+        hideTooltip();
+      } else {
+        showTooltip(icon, METRIC_INFO[key] ?? 'No description available.');
+      }
+      return;
+    }
+    if (!event.target.closest('.metric-tooltip')) {
+      hideTooltip();
+    }
+  });
+  // A tooltip is `position: fixed`, anchored to the icon's viewport
+  // position at the moment it opened - if the drawer's own scrollable
+  // body (or the page) scrolls afterward, that position goes stale, so
+  // any scroll just closes it rather than tracking the icon around.
+  document.addEventListener('scroll', hideTooltip, { capture: true, passive: true });
+  window.addEventListener('resize', hideTooltip);
+}
+
+function showTooltip(anchor, text) {
+  metricTooltip.textContent = text;
+  metricTooltip.dataset.for = anchor.dataset.info;
+  metricTooltip.style.left = '-9999px';
+  metricTooltip.style.top = '-9999px';
+  metricTooltip.hidden = false;
+
+  document.querySelectorAll('.info-icon[aria-expanded="true"]').forEach((el) => el.setAttribute('aria-expanded', 'false'));
+  anchor.setAttribute('aria-expanded', 'true');
+
+  const anchorRect = anchor.getBoundingClientRect();
+  const tooltipRect = metricTooltip.getBoundingClientRect();
+  const left = Math.max(8, Math.min(anchorRect.left, window.innerWidth - tooltipRect.width - 8));
+  let top = anchorRect.bottom + 6;
+  if (top + tooltipRect.height > window.innerHeight - 8) {
+    top = anchorRect.top - tooltipRect.height - 6;
+  }
+  metricTooltip.style.left = `${left}px`;
+  metricTooltip.style.top = `${top}px`;
+}
+
+function hideTooltip() {
+  if (metricTooltip.hidden) return;
+  metricTooltip.hidden = true;
+  document.querySelectorAll('.info-icon[aria-expanded="true"]').forEach((el) => el.setAttribute('aria-expanded', 'false'));
 }
 
 function renderDrawerBody(scan) {
@@ -210,14 +307,14 @@ function renderGraphSection(scan, report) {
     <h3>Graph</h3>
     <div class="metric-row"><span class="metric-name">Nodes</span><span></span><span class="metric-value">${scan.node_count}</span></div>
     <div class="metric-row"><span class="metric-name">Edges</span><span></span><span class="metric-value">${scan.edge_count}</span></div>
-    <div class="metric-row"><span class="metric-name">Role refinement</span><span></span><span class="metric-value">${scan.role_refinement_passes} pass${scan.role_refinement_passes === 1 ? '' : 'es'}</span></div>
+    <div class="metric-row"><span class="metric-name">Role refinement ${infoIcon('roleRefinement')}</span><span></span><span class="metric-value">${scan.role_refinement_passes} pass${scan.role_refinement_passes === 1 ? '' : 'es'}</span></div>
     <p class="stat-label" style="margin-top:14px">Role distribution (${total} nodes)</p>
     <div class="role-bar">${bar}</div>
     <div class="role-legend">${legend}</div>
   </div>`;
 }
 
-function entropyRow(label, value, relevantCount, flaggedCount, flaggedLabel) {
+function entropyRow(label, infoKey, value, relevantCount, flaggedCount, flaggedLabel) {
   const pct = value == null ? 0 : Math.round(value * 100);
   const valueText = formatRatio(value);
   const countText =
@@ -225,7 +322,7 @@ function entropyRow(label, value, relevantCount, flaggedCount, flaggedLabel) {
       ? 'no relevant context'
       : `${flaggedCount}/${relevantCount} ${flaggedLabel}`;
   return `<div class="metric-row">
-      <span class="metric-name">${escapeHtml(label)}</span>
+      <span class="metric-name">${escapeHtml(label)} ${infoIcon(infoKey)}</span>
       <span class="meter-track"><span class="meter-fill" style="width:${pct}%"></span></span>
       <span class="metric-value">${valueText}</span>
     </div>
@@ -235,20 +332,20 @@ function entropyRow(label, value, relevantCount, flaggedCount, flaggedLabel) {
 function renderEntropySection(report) {
   return `<div class="drawer-section">
     <h3>Entropy dimensions</h3>
-    ${entropyRow('Layer', report.layerEntropy.value, report.layerEntropy.relevantEdgeCount, report.layerEntropy.violatingEdgeCount, 'violating')}
-    ${entropyRow('Cycle', report.cycleEntropy.value, report.cycleEntropy.totalNodeCount, report.cycleEntropy.participatingNodeCount, 'in a cycle')}
-    ${entropyRow('Persistence (N+1)', report.persistenceEntropy.value, report.persistenceEntropy.relevantEdgeCount, report.persistenceEntropy.flaggedEdgeCount, 'flagged')}
-    ${entropyRow('Security', report.securityEntropy.value, report.securityEntropy.opportunityCount, report.securityEntropy.flaggedCount, 'flagged')}
+    ${entropyRow('Layer', 'layerEntropy', report.layerEntropy.value, report.layerEntropy.relevantEdgeCount, report.layerEntropy.violatingEdgeCount, 'violating')}
+    ${entropyRow('Cycle', 'cycleEntropy', report.cycleEntropy.value, report.cycleEntropy.totalNodeCount, report.cycleEntropy.participatingNodeCount, 'in a cycle')}
+    ${entropyRow('Persistence (N+1)', 'persistenceEntropy', report.persistenceEntropy.value, report.persistenceEntropy.relevantEdgeCount, report.persistenceEntropy.flaggedEdgeCount, 'flagged')}
+    ${entropyRow('Security', 'securityEntropy', report.securityEntropy.value, report.securityEntropy.opportunityCount, report.securityEntropy.flaggedCount, 'flagged')}
   </div>`;
 }
 
 function renderAggregateSection(scan) {
   return `<div class="drawer-section">
     <h3>Aggregate (section 5)</h3>
-    <div class="metric-row"><span class="metric-name">Total entropy</span><span></span><span class="metric-value">${formatRatio(scan.total_entropy)}</span></div>
-    <div class="metric-row"><span class="metric-name">Maturity</span><span></span><span class="metric-value">${formatRatio(scan.maturity)}</span></div>
+    <div class="metric-row"><span class="metric-name">Total entropy ${infoIcon('totalEntropy')}</span><span></span><span class="metric-value">${formatRatio(scan.total_entropy)}</span></div>
+    <div class="metric-row"><span class="metric-name">Maturity ${infoIcon('maturity')}</span><span></span><span class="metric-value">${formatRatio(scan.maturity)}</span></div>
     <div class="metric-row"><span class="metric-name">Maturity level</span><span></span><span class="metric-value">${scan.maturity_level ? escapeHtml(scan.maturity_level) : '<span class="value-undefined">undefined</span>'}</span></div>
-    <div class="metric-row"><span class="metric-name">Confidence</span><span></span><span class="metric-value">${formatRatio(scan.confidence)}</span></div>
+    <div class="metric-row"><span class="metric-name">Confidence ${infoIcon('confidence')}</span><span></span><span class="metric-value">${formatRatio(scan.confidence)}</span></div>
   </div>`;
 }
 
@@ -268,7 +365,7 @@ function renderInvariantsSection(report) {
 
   const skipped = report.skippedInvariants ?? [];
   const skippedHtml = skipped.length
-    ? `<p class="stat-label" style="margin-top:14px">Skipped (referenced an undefined metric)</p>
+    ? `<p class="stat-label" style="margin-top:14px">Skipped (referenced an undefined metric) ${infoIcon('skippedInvariants')}</p>
        <ul class="skipped-list">${skipped.map((name) => `<li>${escapeHtml(name)}</li>`).join('')}</ul>`
     : '';
 

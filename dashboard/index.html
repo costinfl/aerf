@@ -33,11 +33,11 @@
               <th scope="col">Scanned</th>
               <th scope="col">Nodes</th>
               <th scope="col">Edges</th>
-              <th scope="col">Total entropy</th>
-              <th scope="col">Maturity</th>
-              <th scope="col">Confidence</th>
-              <th scope="col">Violations</th>
-              <th scope="col">Skipped invariants</th>
+              <th scope="col">Total entropy <button class="info-icon" type="button" data-info="totalEntropy" aria-label="What is total entropy?">i</button></th>
+              <th scope="col">Maturity <button class="info-icon" type="button" data-info="maturity" aria-label="What is maturity?">i</button></th>
+              <th scope="col">Confidence <button class="info-icon" type="button" data-info="confidence" aria-label="What is confidence?">i</button></th>
+              <th scope="col">Violations <button class="info-icon" type="button" data-info="violations" aria-label="What is an invariant violation?">i</button></th>
+              <th scope="col">Skipped invariants <button class="info-icon" type="button" data-info="skippedInvariants" aria-label="What does skipped mean?">i</button></th>
             </tr>
           </thead>
           <tbody id="scan-table-body">
@@ -51,6 +51,8 @@
   <footer class="page-footer">
     <a href="https://github.com/costinfl/aerf" target="_blank" rel="noopener">costinfl/aerf</a> on GitHub
   </footer>
+
+  <div id="metric-tooltip" class="metric-tooltip" role="tooltip" hidden></div>
 
   <div id="drawer-backdrop" class="drawer-backdrop" hidden></div>
   <aside id="drawer" class="drawer" hidden aria-label="Scan detail" aria-hidden="true">
