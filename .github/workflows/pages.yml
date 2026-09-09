@@ -2,7 +2,9 @@ name: Deploy dashboard to GitHub Pages
 
 on:
   push:
-    branches: [main]
+    # This repo has no "main" - claude/aerf-core-domain-model-gwumun is
+    # its only branch and its default (same fix, same reason, as ci.yml).
+    branches: [claude/aerf-core-domain-model-gwumun]
     paths:
       - 'dashboard/**'
       - '.github/workflows/pages.yml'

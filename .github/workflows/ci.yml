@@ -2,7 +2,13 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    # This repo has no "main" - claude/aerf-core-domain-model-gwumun is
+    # its only branch and its default. Naming it explicitly, rather than
+    # "main", is why: a hardcoded "main" here would silently never match
+    # any push at all, exactly what happened from Increment 16 (when
+    # this workflow was added) through Increment 19 - confirmed via
+    # `list_workflow_runs` returning zero runs, ever, before this fix.
+    branches: [claude/aerf-core-domain-model-gwumun]
   pull_request:
 
 jobs:
