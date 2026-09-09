@@ -256,6 +256,23 @@ illustration yet of extractor-level type resolution
 `ExecutionContext.ITERATED`. This makes the N+1 heuristic from Increment
 6 run against real code for the first time.
 
+**Increment 14 — done.** `JavaClassExtractor` renamed
+`JavaSourceExtractor` (one parse batch, one visitor, now covering both
+class and method level — see the increment doc's "Why a rename").
+`FUNCTION` nodes, `CALL` edges with `ITERATED` evidence for loop-body
+call sites, and (closing Increment 13's own deferral) field-level
+`DEPENDS` edges, all added to the same visitor. A sixth sample file,
+`OrderService.java`, exercises a resolved in-batch `CALL`, the same
+target called again inside a for-each loop for the `ITERATED` fixture,
+and a call to an unresolvable method reusing `LegacyWidget`'s
+already-unresolvable supertype as the root cause — so the two different
+"unresolved" tree-position representations the Step 0 spike found
+(`JavaType.Unknown` for `EXTENDS`, `null` for a `CALL`'s method type)
+now both have direct coverage from the same underlying fixture. Method
+parameter/return-type `DEPENDS`, `new`-expression edges, and lambda
+`FUNCTION` nodes are explicitly out of scope, recorded in the increment
+doc. 11 new tests; 200 total across the reactor.
+
 **Increment 15 — Spring and annotation semantic evidence.** Emit
 structured annotation attributes so role inference works on real source,
 replacing Increment 2's invented test strings with adapter-produced

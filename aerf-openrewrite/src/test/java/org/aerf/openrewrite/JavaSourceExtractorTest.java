@@ -4,6 +4,7 @@ import org.aerf.extraction.ExtractionRequest;
 import org.aerf.extraction.ExtractionResult;
 import org.aerf.extraction.GraphAssembler;
 import org.aerf.extraction.JavaNodeIds;
+import org.aerf.model.ExecutionContext;
 import org.aerf.model.ExtractionFidelity;
 import org.aerf.model.Graph;
 import org.aerf.model.Node;
@@ -25,19 +26,22 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Exercises {@link JavaClassExtractor} against the sample project fixture
- * under {@code src/test/resources/sample-project}, both without a
+ * Exercises {@link JavaSourceExtractor} against the sample project
+ * fixture under {@code src/test/resources/sample-project}, both without a
  * classpath (§8.1's L1 degradation path — the only mode a within-batch
  * JDK type still resolves in) and with one, per the ExtractionAdapter
  * Plan's explicit "test both modes" instruction. The fixture's own
  * comments explain each planted case; {@link LegacyWidget}'s deliberately
- * undeclared supertype is the L1_SYNTAX fixture.
+ * undeclared supertype and {@code OrderService.touchLegacyWidget()}'s
+ * call on it are the L1_SYNTAX fixtures for EXTENDS and CALL
+ * respectively; {@code OrderService.reprocessAll(...)} is the ITERATED
+ * execution-context fixture.
  */
-class JavaClassExtractorTest {
+class JavaSourceExtractorTest {
 
     private static Path sampleProjectRoot() {
         try {
-            URL url = JavaClassExtractorTest.class.getClassLoader().getResource("sample-project");
+            URL url = JavaSourceExtractorTest.class.getClassLoader().getResource("sample-project");
             return Paths.get(url.toURI());
         } catch (URISyntaxException e) {
             throw new IllegalStateException("sample-project resource not found", e);
@@ -45,19 +49,20 @@ class JavaClassExtractorTest {
     }
 
     private static Graph extractSample(List<Path> classpath) {
-        JavaClassExtractor extractor = new JavaClassExtractor();
+        JavaSourceExtractor extractor = new JavaSourceExtractor();
         ExtractionRequest request = new ExtractionRequest(List.of(sampleProjectRoot()), classpath);
         ExtractionResult result = extractor.extract(request);
         return new GraphAssembler().assemble(result);
     }
 
     @Test
-    void extractsAllFiveComponentNodesWithoutAClasspath() {
+    void extractsAllSixComponentNodesWithoutAClasspath() {
         Graph graph = extractSample(List.of());
 
-        assertEquals(5, graph.nodes().size());
+        assertEquals(6, graph.nodes().stream().filter(n -> n.type() == NodeType.COMPONENT).count());
         for (String fqn : List.of("com.example.BaseEntity", "com.example.Order",
-                "com.example.OrderRepository", "com.example.OrderRepositoryImpl", "com.example.LegacyWidget")) {
+                "com.example.OrderRepository", "com.example.OrderRepositoryImpl", "com.example.LegacyWidget",
+                "com.example.OrderService")) {
             NodeId id = JavaNodeIds.type(fqn);
             Optional<Node> node = graph.node(id);
             assertTrue(node.isPresent(), fqn + " should have been extracted as a COMPONENT node");
@@ -69,9 +74,9 @@ class JavaClassExtractorTest {
     void resolvesWithinBatchExtendsAndImplementsEvenWithoutAnExternalClasspath() {
         Graph graph = extractSample(List.of());
 
-        assertResolvedEdge(graph, "com.example.Order", "com.example.BaseEntity", RelationType.EXTENDS,
+        assertResolvedTypeEdge(graph, "com.example.Order", "com.example.BaseEntity", RelationType.EXTENDS,
                 ExtractionFidelity.L2_SYMBOL_RESOLVED);
-        assertResolvedEdge(graph, "com.example.OrderRepositoryImpl", "com.example.OrderRepository",
+        assertResolvedTypeEdge(graph, "com.example.OrderRepositoryImpl", "com.example.OrderRepository",
                 RelationType.IMPLEMENTS, ExtractionFidelity.L2_SYMBOL_RESOLVED);
     }
 
@@ -120,6 +125,76 @@ class JavaClassExtractorTest {
     }
 
     @Test
+    void extractsFunctionNodesForDeclaredMethods() {
+        Graph graph = extractSample(List.of());
+
+        NodeId placeOrderId = JavaNodeIds.method("com.example.OrderService", "placeOrder", List.of("java.lang.Long"));
+        NodeId findByIdId = JavaNodeIds.method("com.example.OrderRepository", "findById", List.of("java.lang.Long"));
+        for (NodeId id : List.of(placeOrderId, findByIdId)) {
+            Optional<Node> node = graph.node(id);
+            assertTrue(node.isPresent(), id + " should have been extracted as a FUNCTION node");
+            assertEquals(NodeType.FUNCTION, node.get().type());
+        }
+    }
+
+    @Test
+    void resolvesADependsEdgeFromAFieldDeclarationWithinTheBatch() {
+        Graph graph = extractSample(List.of());
+
+        assertResolvedTypeEdge(graph, "com.example.OrderService", "com.example.OrderRepository", RelationType.DEPENDS,
+                ExtractionFidelity.L2_SYMBOL_RESOLVED);
+        assertResolvedTypeEdge(graph, "com.example.OrderService", "com.example.LegacyWidget", RelationType.DEPENDS,
+                ExtractionFidelity.L2_SYMBOL_RESOLVED);
+    }
+
+    @Test
+    void resolvesACallEdgeToAnInBatchMethodWithoutIteratedContextOutsideALoop() {
+        Graph graph = extractSample(List.of());
+
+        NodeId placeOrderId = JavaNodeIds.method("com.example.OrderService", "placeOrder", List.of("java.lang.Long"));
+        NodeId findByIdId = JavaNodeIds.method("com.example.OrderRepository", "findById", List.of("java.lang.Long"));
+
+        List<org.aerf.model.Edge> callEdges = graph.edgesFrom(placeOrderId).stream()
+                .filter(e -> e.relation() == RelationType.CALL)
+                .toList();
+        assertEquals(1, callEdges.size());
+        org.aerf.model.Edge edge = callEdges.get(0);
+        assertTrue(edge.target() instanceof NodeRef.Resolved resolved && resolved.id().equals(findByIdId));
+        assertEquals(ExecutionContext.UNKNOWN, edge.provenance().get(0).executionContext());
+    }
+
+    @Test
+    void marksACallEdgeInsideAForEachLoopAsIterated() {
+        Graph graph = extractSample(List.of());
+
+        NodeId reprocessAllId = JavaNodeIds.method("com.example.OrderService", "reprocessAll", List.of("java.util.List"));
+        NodeId findByIdId = JavaNodeIds.method("com.example.OrderRepository", "findById", List.of("java.lang.Long"));
+
+        List<org.aerf.model.Edge> callEdges = graph.edgesFrom(reprocessAllId).stream()
+                .filter(e -> e.relation() == RelationType.CALL)
+                .toList();
+        assertEquals(1, callEdges.size());
+        org.aerf.model.Edge edge = callEdges.get(0);
+        assertTrue(edge.target() instanceof NodeRef.Resolved resolved && resolved.id().equals(findByIdId));
+        assertEquals(ExecutionContext.ITERATED, edge.provenance().get(0).executionContext());
+    }
+
+    @Test
+    void recordsACallToAnUnresolvableMethodAsL1SyntaxUnresolved() {
+        Graph graph = extractSample(List.of());
+
+        NodeId touchLegacyWidgetId = JavaNodeIds.method("com.example.OrderService", "touchLegacyWidget", List.of());
+        List<org.aerf.model.Edge> callEdges = graph.edgesFrom(touchLegacyWidgetId).stream()
+                .filter(e -> e.relation() == RelationType.CALL)
+                .toList();
+        assertEquals(1, callEdges.size());
+        org.aerf.model.Edge edge = callEdges.get(0);
+        assertTrue(edge.target() instanceof NodeRef.Unresolved unresolved
+                && unresolved.description().equals("legacyOperation"));
+        assertEquals(ExtractionFidelity.L1_SYNTAX, edge.provenance().get(0).fidelity());
+    }
+
+    @Test
     void anExplicitClasspathDoesNotChangeWithinBatchResolutionResults() {
         // The request-level classpath (ExtractionRequest.classpath) exists
         // for third-party dependencies. None of this sample's supertypes
@@ -131,9 +206,9 @@ class JavaClassExtractorTest {
         Path irrelevantClasspathEntry = sampleProjectRoot();
         Graph graph = extractSample(List.of(irrelevantClasspathEntry));
 
-        assertResolvedEdge(graph, "com.example.Order", "com.example.BaseEntity", RelationType.EXTENDS,
+        assertResolvedTypeEdge(graph, "com.example.Order", "com.example.BaseEntity", RelationType.EXTENDS,
                 ExtractionFidelity.L2_SYMBOL_RESOLVED);
-        assertResolvedEdge(graph, "com.example.OrderRepositoryImpl", "com.example.OrderRepository",
+        assertResolvedTypeEdge(graph, "com.example.OrderRepositoryImpl", "com.example.OrderRepository",
                 RelationType.IMPLEMENTS, ExtractionFidelity.L2_SYMBOL_RESOLVED);
 
         NodeId legacyWidgetId = JavaNodeIds.type("com.example.LegacyWidget");
@@ -156,16 +231,16 @@ class JavaClassExtractorTest {
         assertEquals(firstIds, secondIds);
     }
 
-    private static void assertResolvedEdge(Graph graph, String fromFqn, String toFqn, RelationType relation,
+    private static void assertResolvedTypeEdge(Graph graph, String fromFqn, String toFqn, RelationType relation,
             ExtractionFidelity expectedFidelity) {
         NodeId fromId = JavaNodeIds.type(fromFqn);
+        NodeId toId = JavaNodeIds.type(toFqn);
         List<org.aerf.model.Edge> matching = graph.edgesFrom(fromId).stream()
-                .filter(e -> e.relation() == relation)
+                .filter(e -> e.relation() == relation && e.target() instanceof NodeRef.Resolved resolved
+                        && resolved.id().equals(toId))
                 .toList();
-        assertEquals(1, matching.size(), () -> fromFqn + " should have exactly one " + relation + " edge");
+        assertEquals(1, matching.size(), () -> fromFqn + " should have exactly one " + relation + " edge to " + toFqn);
         org.aerf.model.Edge edge = matching.get(0);
-        assertTrue(edge.target() instanceof NodeRef.Resolved resolved && resolved.id().value().equals(toFqn),
-                () -> "expected " + relation + " target " + toFqn + " but was " + edge.target());
         assertFalse(edge.provenance().isEmpty());
         assertEquals(expectedFidelity, edge.provenance().get(0).fidelity());
     }
