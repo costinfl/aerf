@@ -151,6 +151,24 @@ class JavaSourceExtractorTest {
     }
 
     @Test
+    void emitsAMemberOfEdgeFromEachMethodToItsDeclaringClass() {
+        // Open question #17 / AERF v0.4.1 patch Amendment 6: a purely
+        // structural fact, always resolved (a method's declaring class is
+        // always in the same parse batch) - deliberately not consumed by
+        // role inference itself, see the amendment for why.
+        Graph graph = extractSample(List.of());
+
+        NodeId placeOrderId = JavaNodeIds.method("com.example.OrderService", "placeOrder", List.of("java.lang.Long"));
+        NodeId orderServiceId = JavaNodeIds.type("com.example.OrderService");
+        List<org.aerf.model.Edge> memberOfEdges = graph.edgesFrom(placeOrderId).stream()
+                .filter(e -> e.relation() == RelationType.MEMBER_OF)
+                .toList();
+        assertEquals(1, memberOfEdges.size());
+        org.aerf.model.Edge edge = memberOfEdges.get(0);
+        assertTrue(edge.target() instanceof NodeRef.Resolved resolved && resolved.id().equals(orderServiceId));
+    }
+
+    @Test
     void resolvesADependsEdgeFromAFieldDeclarationWithinTheBatch() {
         Graph graph = extractSample(List.of());
 

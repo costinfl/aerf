@@ -285,6 +285,10 @@ public final class JavaSourceExtractor implements SourceExtractor {
                 methodEvidence.addAll(currentOwnerRoleEvidence);
                 nodeFacts.add(new NodeFact(id, NodeType.FUNCTION, Map.of(), List.copyOf(methodEvidence)));
                 this.currentMethodId = id.value();
+
+                if (currentOwnerFqn != null) {
+                    edgeFacts.add(memberOfEdge(id.value(), currentOwnerFqn));
+                }
             } else {
                 // No FUNCTION node emitted for an unresolved method declaration
                 // (section 8: never fabricate an id) - and, as a consequence,
@@ -365,6 +369,26 @@ public final class JavaSourceExtractor implements SourceExtractor {
                     .location(sourcePath.toString())
                     .build();
             return new EdgeFact(SymbolRef.of(ownFqn), SymbolRef.of(key, printedName), relation, List.of(edgeEvidence));
+        }
+
+        /**
+         * The AERF v0.4.1 patch Amendment 6 fix for open question #17: a
+         * purely structural fact - "this method is declared by this
+         * class" - always resolved within the same parse batch (a
+         * method's declaring class is, by construction, present in the
+         * same {@code J.CompilationUnit} this visitor is already
+         * traversing), unlike every other edge this class emits, whose
+         * target may be external. Not consumed by role inference (see the
+         * amendment for why); available for any future graph-relationship
+         * rule or centrality signal that wants to reason about a
+         * method/class pair.
+         */
+        private EdgeFact memberOfEdge(String functionId, String ownerFqn) {
+            Evidence edgeEvidence = Evidence.builder(ADAPTER_NAME, "method declared by " + ownerFqn,
+                            ExtractionFidelity.L2_SYMBOL_RESOLVED)
+                    .location(sourcePath.toString())
+                    .build();
+            return new EdgeFact(SymbolRef.of(functionId), SymbolRef.of(ownerFqn), RelationType.MEMBER_OF, List.of(edgeEvidence));
         }
 
         /**

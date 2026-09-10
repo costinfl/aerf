@@ -248,6 +248,82 @@ substring anywhere in the description.
 
 ---
 
+## Amendment 6 — Edge relation set gains a structural `MEMBER_OF` relation
+
+**Affected sections:** §2.4 (canonical edge model, `tau_E`).
+
+**Original text:** §2.4's relation type set (`tau_E`) has no relation
+connecting a `FUNCTION` node to the `COMPONENT` node that declares it -
+only inheritance-style relations (`EXTENDS`/`IMPLEMENTS`) connect two
+`COMPONENT` nodes to each other.
+
+**Problem found:** Recorded as open question #17 during Increment 16:
+building the end-to-end pipeline runner found that graph-relationship
+role refinement (`R^(n+1)`, `InheritRoleFromSupertype`) has no way to
+propagate a class's role down to its own methods, because no structural
+relation connects a method to its declaring class at all. Increment 16
+worked around this by having `JavaSourceExtractor` copy a class's own
+stereotype evidence onto each of its declared methods' `NodeFact`s at
+*extraction* time - a real fix for role propagation, but, as that
+increment's own record says, "adapter-level evidence duplication, not a
+graph-relationship fact - it only works for the one adapter and evidence
+shape that was updated to do it," with no general answer for e.g. a
+future `CALL`-based centrality signal wanting to reason about a method's
+declaring class.
+
+**Amendment:** `tau_E` gains `MEMBER_OF`: a purely structural relation
+from a `FUNCTION` node to the `COMPONENT` node that declares it. Unlike
+every other relation this project's adapters emit, its target is, by
+construction, always in the same parse batch as its source (a method's
+declaring class is never external), so a real adapter can always resolve
+it - there is no "unresolved `MEMBER_OF` target" case analogous to an
+unresolved `EXTENDS` target.
+
+**Deliberately not wired into role inference.** Open question #17 named
+three options: add the structural relation, add a dedicated
+graph-refinement rule consuming it, or keep the Increment 16
+evidence-copy workaround as the accepted mechanism. This amendment
+adopts the first and third together, **not** the second, for a concrete
+reason found while evaluating it: `GraphRoleRefinementRule`'s contract
+(Amendment 4) only lets a rule see roles as of the *start* of the current
+pass, so a method could only inherit its declaring class's role one full
+pass *after* the class itself resolved - not the same pass, as
+evidence-copying achieves today by making the fact directly available at
+seed time (`R^(0)`). Wiring a `MEMBER_OF`-consuming refinement rule in
+addition to (or instead of) evidence-copying would therefore change the
+number of refinement passes several already-verified worked examples
+depend on (Increment 16's "exactly two role-refinement passes" defect,
+Increment 18/20's real-repository runs) for no behavioral gain over what
+evidence-copying already provides for role inference specifically. The
+relation is added for its own sake - a real structural fact §2's model
+was missing, useful to any future rule or metric that wants it - without
+disturbing role inference's current, tested behavior.
+
+**A second, unplanned finding while implementing this.** No entropy
+metric's `relevantRelations` allow-list includes `MEMBER_OF` (all three
+default to explicit `CALL`/`DEPENDS` subsets), so layer/cycle/persistence
+entropy are genuinely unaffected. `AnalysisConfidence` (§5.4) is not
+relation-scoped at all, though - by design, it reads "relevant relations"
+as *every* edge the graph contains - and `MEMBER_OF` edges are, by
+construction, always resolved (a method's declaring class is always in
+the same parse batch). Adding them without exclusion measurably inflated
+confidence on `aerf-pipeline`'s own defect-sample fixture (0.714 →
+0.857) for a reason with nothing to do with extraction quality: it just
+means the sample has methods. `AnalysisConfidence.compute` was updated
+in the same increment to exclude `MEMBER_OF` from both its numerator and
+denominator, with the reasoning recorded in that class's own javadoc.
+This is the same shape of amendment as Amendment 3's "relevant
+persistence contexts" definition — a metric's own relevance filter, not
+a change to what `MEMBER_OF` means structurally.
+
+**Rationale / evidence:** Implemented in Increment 21
+(`aerf-model`, `RelationType.MEMBER_OF`; `aerf-openrewrite`,
+`JavaSourceExtractor` emits one `MEMBER_OF` edge per declared method;
+`aerf-analysis`, `AnalysisConfidence` excludes it). See
+`docs/increment-21-*.md`.
+
+---
+
 ## Non-normative implementation note — determinism and `Map.copyOf`
 
 Not a specification amendment (no conceptual change), but worth
