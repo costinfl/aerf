@@ -60,20 +60,22 @@ class JavaSourceExtractorTest {
 
     @Test
     void extractsAllApplicationComponentNodesWithoutAClasspath() {
-        // 10 total: the 7 com.example.* types below plus the 3 local
+        // 12 total: the 8 com.example.* types below plus the 3 local
         // org.springframework.stereotype.* annotation-type stubs
-        // (Controller/Service/Repository) - an annotation type declaration
-        // is itself a J.ClassDeclaration (Kind.Type.Annotation), so it
-        // correctly gets its own COMPONENT node too, incidental to this
-        // increment's real purpose but not filtered out (section 8: this
-        // extractor doesn't get to decide a real declared type in the
-        // batch is uninteresting).
+        // (Controller/Service/Repository) and the 1 local
+        // org.springframework.data.repository.Repository marker-interface
+        // stub - an annotation type declaration is itself a
+        // J.ClassDeclaration (Kind.Type.Annotation), so it correctly gets
+        // its own COMPONENT node too, incidental to this increment's real
+        // purpose but not filtered out (section 8: this extractor doesn't
+        // get to decide a real declared type in the batch is
+        // uninteresting).
         Graph graph = extractSample(List.of());
 
-        assertEquals(10, graph.nodes().stream().filter(n -> n.type() == NodeType.COMPONENT).count());
+        assertEquals(12, graph.nodes().stream().filter(n -> n.type() == NodeType.COMPONENT).count());
         for (String fqn : List.of("com.example.BaseEntity", "com.example.Order",
-                "com.example.OrderRepository", "com.example.OrderRepositoryImpl", "com.example.LegacyWidget",
-                "com.example.OrderService", "com.example.OrderController")) {
+                "com.example.OrderRepository", "com.example.OrderRepositoryImpl", "com.example.OrderQueryRepository",
+                "com.example.LegacyWidget", "com.example.OrderService", "com.example.OrderController")) {
             NodeId id = JavaNodeIds.type(fqn);
             Optional<Node> node = graph.node(id);
             assertTrue(node.isPresent(), fqn + " should have been extracted as a COMPONENT node");
@@ -193,6 +195,29 @@ class JavaSourceExtractorTest {
     }
 
     @Test
+    void recognizesASpringDataRepositoryByMarkerInterfaceWithNoAnnotationAtAll() {
+        // Open question #18: OrderQueryRepository extends
+        // org.springframework.data.repository.Repository directly - no
+        // @Repository annotation anywhere - exactly the real-world shape
+        // Increment 18's spring-petclinic run found invisible to the
+        // annotation-only rule. This is the positive case; the negative
+        // control (an @Repository-annotated impl carrying no marker
+        // interface) is OrderRepositoryImpl in the test above.
+        Graph graph = extractSample(List.of());
+
+        Node repository = graph.node(JavaNodeIds.type("com.example.OrderQueryRepository")).orElseThrow();
+        assertTrue(repository.evidence().stream().anyMatch(e -> e.sourceAdapter().equals("spring-data")
+                && "org.springframework.data.repository.Repository".equals(e.attributes().get("springDataMarkerInterface"))));
+
+        // Propagated onto the declared method too, same as annotation-based
+        // stereotype evidence (Increment 16's evidence-copy substitute for
+        // open question #17's missing declares/member-of relation).
+        NodeId findByStatusId = JavaNodeIds.method("com.example.OrderQueryRepository", "findByStatus", List.of("java.lang.String"));
+        Node findByStatus = graph.node(findByStatusId).orElseThrow();
+        assertTrue(findByStatus.evidence().stream().anyMatch(e -> e.sourceAdapter().equals("spring-data")));
+    }
+
+    @Test
     void doesNotEmitStereotypeEvidenceForATypeWithNoSpringAnnotation() {
         // BaseEntity carries no Spring stereotype annotation at all - the
         // negative control for the previous test, so a false positive
@@ -221,6 +246,10 @@ class JavaSourceExtractorTest {
         assertEquals(Role.PRESENTATION, withRoles.node(JavaNodeIds.type("com.example.OrderController")).orElseThrow().role());
         assertEquals(Role.APPLICATION, withRoles.node(JavaNodeIds.type("com.example.OrderService")).orElseThrow().role());
         assertEquals(Role.PERSISTENCE, withRoles.node(JavaNodeIds.type("com.example.OrderRepositoryImpl")).orElseThrow().role());
+        // Open question #18: classified PERSISTENCE from marker-interface
+        // evidence alone, with no @Repository annotation on this type at
+        // all - the real failure case Increment 18 found, now fixed.
+        assertEquals(Role.PERSISTENCE, withRoles.node(JavaNodeIds.type("com.example.OrderQueryRepository")).orElseThrow().role());
         assertEquals(Role.UNKNOWN, withRoles.node(JavaNodeIds.type("com.example.BaseEntity")).orElseThrow().role());
     }
 

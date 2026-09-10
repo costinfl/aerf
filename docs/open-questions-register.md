@@ -63,6 +63,15 @@ current rule catalog. See new question #18 for the concrete follow-up
 this implies. `docs/increment-18-real-repository-run.md` has the full
 run.
 
+*Follow-up fixed in Increment 20.* The specific gap this run found —
+idiomatic Spring Data repositories with no `@Repository` annotation —
+is fixed; see #18 in the Resolved section below. This question (#1)
+itself stays open: Increment 20 closes one named failure case, it does
+not establish there are no others, and none of Increments 1–20 has yet
+produced a case where seed and graph-refinement *together* get a wrong
+answer (as opposed to seed alone missing evidence a real adapter simply
+hadn't been taught to produce yet).
+
 ### 2. Rule authorship boundary for the "Governance" evidence class
 
 *From: Increment 2, still open after Increment 4.* §3.3 names four
@@ -209,31 +218,26 @@ should gain a dedicated "inherits from declaring node" rule instead, or
 whether evidence-time propagation (this increment's choice) is
 accepted as the intended mechanism going forward.
 
-### 18. Should `DefaultSeedRules` recognize Spring Data repositories by marker-interface inheritance, not only by `@Repository`?
-
-*From: Increment 18.* Direct follow-up to #1's real finding: idiomatic
-Spring Data repository interfaces (`extends Repository<T, ID>` /
-`JpaRepository<T, ID>` / `CrudRepository<T, ID>`, etc.) carry no
-`@Repository` annotation and are therefore invisible to
-`PersistenceBySpringDataAdapter` entirely. A plausible fix is a new seed
-rule matching a resolved `EXTENDS`/`IMPLEMENTS` target's fully-qualified
-name against Spring Data's own marker-interface family
-(`org.springframework.data.repository.Repository` and its known
-subinterfaces) — structurally similar to `InheritRoleFromSupertype`
-but as a *seed* rule (matching an external, unextracted type by FQN)
-rather than a graph-refinement rule (which only works between two nodes
-both already in the graph). Not attempted in Increment 18: choosing
-which marker interfaces to hard-code, whether to match transitively
-(a custom `interface MyRepo extends JpaRepository<...>` one layer removed
-from the real marker), and whether this belongs in `DefaultSeedRules`
-(illustrative, not part of v0.4) or should be a documented pattern for
-adapters generally, are all real design decisions a future increment
-should make deliberately rather than as a side effect of a bug fix.
-
 ---
 
 ## Resolved (moved to the v0.4.1 patch, kept here for traceability)
 
+- ~~Should `DefaultSeedRules` recognize Spring Data repositories by
+  marker-interface inheritance, not only by `@Repository`?~~ → resolved
+  in Increment 20 (`docs/increment-20-*.md`), but not the way this entry
+  originally speculated: the fix lives entirely in `JavaSourceExtractor`
+  (`aerf-openrewrite`), not in a new `DefaultSeedRules` seed rule.
+  `RoleInferenceRule` is contractually a pure function of one node's own
+  evidence with no graph access (`aerf-analysis`'s own interface
+  javadoc), so a rule matching an *external, unextracted* supertype by
+  FQN could never have been written as a seed rule at all — it has to be
+  the adapter that recognizes the marker interface and emits ordinary
+  `spring-data`-sourced `Evidence`, exactly the same shape
+  `PersistenceBySpringDataAdapter` already reads for `@Repository`. That
+  existing seed rule needed **no change**. Scoped to the class's directly
+  declared `extends`/`implements` target only, not transitively through
+  an intermediate custom interface — a deliberate, documented choice
+  (see the increment doc), not yet contradicted by a real repository.
 - ~~`StronglyConnectedComponents`'s recursive implementation and stack
   depth~~ → resolved by an iterative rewrite (not a spec amendment - pure
   implementation debt), `docs/increment-17-*.md`. Verified against a

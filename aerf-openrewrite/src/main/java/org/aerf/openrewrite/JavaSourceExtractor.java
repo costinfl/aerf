@@ -30,6 +30,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Stream;
 
 /**
@@ -71,6 +72,33 @@ public final class JavaSourceExtractor implements SourceExtractor {
     private static final String SPRING_CONTROLLER_ANNOTATION = "org.springframework.stereotype.Controller";
     private static final String SPRING_SERVICE_ANNOTATION = "org.springframework.stereotype.Service";
     private static final String SPRING_REPOSITORY_ANNOTATION = "org.springframework.stereotype.Repository";
+
+    /**
+     * Spring Data's own marker-interface family (open question #18,
+     * `docs/open-questions-register.md`): idiomatic Spring Data
+     * repositories are recognized by Spring at runtime through one of
+     * these interfaces, not through {@link #SPRING_REPOSITORY_ANNOTATION}
+     * - confirmed the hard way in Increment 18, where every repository
+     * interface in a real, idiomatic spring-petclinic checkout got
+     * {@code Role.UNKNOWN} because none of them carried the annotation.
+     * Matched by resolved FQN of a class's <b>directly declared</b>
+     * {@code extends}/{@code implements} target only - not transitively
+     * through an intermediate custom interface - the same conservative,
+     * one-hop scope {@code InheritRoleFromSupertype} uses for graph
+     * refinement, and a deliberate decision recorded here rather than
+     * left implicit: a future increment may widen this if a real
+     * repository is found extending a marker interface only through an
+     * intermediate type.
+     */
+    private static final Set<String> SPRING_DATA_MARKER_INTERFACES = Set.of(
+            "org.springframework.data.repository.Repository",
+            "org.springframework.data.repository.CrudRepository",
+            "org.springframework.data.repository.PagingAndSortingRepository",
+            "org.springframework.data.repository.ListCrudRepository",
+            "org.springframework.data.repository.ListPagingAndSortingRepository",
+            "org.springframework.data.repository.reactive.ReactiveCrudRepository",
+            "org.springframework.data.repository.reactive.ReactiveSortingRepository",
+            "org.springframework.data.jpa.repository.JpaRepository");
 
     @Override
     public ExtractionResult extract(ExtractionRequest request) {
@@ -135,8 +163,10 @@ public final class JavaSourceExtractor implements SourceExtractor {
         /** The enclosing class's resolved FQN, or {@code null} if unresolved/absent. */
         private String currentOwnerFqn;
         /**
-         * The enclosing class's own Spring stereotype evidence (Increment
-         * 15), copied onto each of its declared methods' FUNCTION
+         * The enclosing class's own role-seeding evidence - Spring
+         * stereotype annotations (Increment 15) and, since this increment,
+         * Spring Data marker-interface inheritance too (open question
+         * #18) - copied onto each of its declared methods' FUNCTION
          * NodeFacts too (Increment 16) - see
          * {@code docs/increment-16-*.md} for why: the canonical graph has
          * no structural edge from a FUNCTION node to its declaring
@@ -145,7 +175,7 @@ public final class JavaSourceExtractor implements SourceExtractor {
          * copying the evidence at extraction time makes a method's own
          * role inferable at all.
          */
-        private List<Evidence> currentOwnerStereotypeEvidence = List.of();
+        private List<Evidence> currentOwnerRoleEvidence = List.of();
         /** The enclosing method's FUNCTION {@code NodeId} value, or {@code null} outside any method. */
         private String currentMethodId;
         private int loopDepth;
@@ -157,7 +187,7 @@ public final class JavaSourceExtractor implements SourceExtractor {
         @Override
         public J.ClassDeclaration visitClassDeclaration(J.ClassDeclaration classDecl, Object p) {
             String previousOwnerFqn = this.currentOwnerFqn;
-            List<Evidence> previousOwnerStereotypeEvidence = this.currentOwnerStereotypeEvidence;
+            List<Evidence> previousOwnerRoleEvidence = this.currentOwnerRoleEvidence;
 
             JavaType.FullyQualified type = classDecl.getType();
             if (isResolved(type)) {
@@ -169,11 +199,22 @@ public final class JavaSourceExtractor implements SourceExtractor {
                                 ExtractionFidelity.L2_SYMBOL_RESOLVED)
                         .location(sourcePath.toString())
                         .build();
+                List<TypeTree> declaredSupertypes = new ArrayList<>();
+                if (classDecl.getExtends() != null) {
+                    declaredSupertypes.add(classDecl.getExtends());
+                }
+                if (classDecl.getImplements() != null) {
+                    declaredSupertypes.addAll(classDecl.getImplements());
+                }
                 List<Evidence> stereotypeEvidence = springStereotypeEvidence(classDecl.getLeadingAnnotations());
-                this.currentOwnerStereotypeEvidence = stereotypeEvidence;
+                List<Evidence> springDataMarkerEvidence = springDataMarkerInterfaceEvidence(declaredSupertypes);
+                List<Evidence> roleEvidence = new ArrayList<>();
+                roleEvidence.addAll(stereotypeEvidence);
+                roleEvidence.addAll(springDataMarkerEvidence);
+                this.currentOwnerRoleEvidence = List.copyOf(roleEvidence);
                 List<Evidence> classEvidence = new ArrayList<>();
                 classEvidence.add(declarationEvidence);
-                classEvidence.addAll(stereotypeEvidence);
+                classEvidence.addAll(roleEvidence);
                 nodeFacts.add(new NodeFact(id, NodeType.COMPONENT, Map.of(), List.copyOf(classEvidence)));
 
                 if (classDecl.getExtends() != null) {
@@ -186,12 +227,12 @@ public final class JavaSourceExtractor implements SourceExtractor {
                 }
             } else {
                 this.currentOwnerFqn = null;
-                this.currentOwnerStereotypeEvidence = List.of();
+                this.currentOwnerRoleEvidence = List.of();
             }
 
             J.ClassDeclaration result = super.visitClassDeclaration(classDecl, p);
             this.currentOwnerFqn = previousOwnerFqn;
-            this.currentOwnerStereotypeEvidence = previousOwnerStereotypeEvidence;
+            this.currentOwnerRoleEvidence = previousOwnerRoleEvidence;
             return result;
         }
 
@@ -241,7 +282,7 @@ public final class JavaSourceExtractor implements SourceExtractor {
                         .build();
                 List<Evidence> methodEvidence = new ArrayList<>();
                 methodEvidence.add(declarationEvidence);
-                methodEvidence.addAll(currentOwnerStereotypeEvidence);
+                methodEvidence.addAll(currentOwnerRoleEvidence);
                 nodeFacts.add(new NodeFact(id, NodeType.FUNCTION, Map.of(), List.copyOf(methodEvidence)));
                 this.currentMethodId = id.value();
             } else {
@@ -324,6 +365,36 @@ public final class JavaSourceExtractor implements SourceExtractor {
                     .location(sourcePath.toString())
                     .build();
             return new EdgeFact(SymbolRef.of(ownFqn), SymbolRef.of(key, printedName), relation, List.of(edgeEvidence));
+        }
+
+        /**
+         * Structured {@code spring-data} evidence for a class whose
+         * directly declared {@code extends}/{@code implements} target
+         * resolves to one of {@link #SPRING_DATA_MARKER_INTERFACES} - the
+         * open question #18 fix. Deliberately parallel to
+         * {@link #springStereotypeEvidence}: same {@code sourceAdapter}
+         * string {@code PersistenceBySpringDataAdapter} already matches on
+         * (no seed-rule change needed at all), matched by resolved FQN
+         * only, never by simple name.
+         */
+        private List<Evidence> springDataMarkerInterfaceEvidence(List<TypeTree> declaredSupertypes) {
+            List<Evidence> evidence = new ArrayList<>();
+            for (TypeTree superType : declaredSupertypes) {
+                JavaType type = superType.getType();
+                if (!isResolved(type)) {
+                    continue;
+                }
+                String fqn = ((JavaType.FullyQualified) type).getFullyQualifiedName();
+                if (!SPRING_DATA_MARKER_INTERFACES.contains(fqn)) {
+                    continue;
+                }
+                evidence.add(Evidence.builder("spring-data", "extends Spring Data marker interface " + fqn,
+                                ExtractionFidelity.L2_SYMBOL_RESOLVED)
+                        .location(sourcePath.toString())
+                        .attribute("springDataMarkerInterface", fqn)
+                        .build());
+            }
+            return evidence;
         }
 
         /**
