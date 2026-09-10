@@ -324,6 +324,46 @@ a change to what `MEMBER_OF` means structurally.
 
 ---
 
+## Amendment 7 — Confidence (§5.4) is unaffected by a node's role outcome
+
+**Affected section:** §5.4 (analysis confidence).
+
+**Original text:** "Confidence... C = resolved relevant relations /
+total extracted relevant relations." No statement of whether a node
+whose role inference left at `Unknown` should count as part of this
+ratio.
+
+**Problem found:** Open question #3 (Increments 2 and 4): role
+inference's `Unknown` is a per-node outcome; confidence as written is
+relation-centric. Does a node stuck at `Unknown` make every edge
+touching it count as "unresolved" for confidence purposes? Left
+genuinely ambiguous by §5.4's text alone.
+
+**Amendment:** No — role outcome and confidence are unrelated signals,
+and `AnalysisConfidence`'s existing implementation (Increment 8) already
+embodies this reading without ever having stated it explicitly:
+`bothEndpointsResolved` checks whether an edge's endpoints are
+`NodeRef.Resolved` — i.e., whether the *graph* could identify which node
+an edge points to — never a node's `Role`. A node can be fully
+`NodeRef.Resolved` (extraction found and identified it) and still carry
+`Role.UNKNOWN` (role inference had no evidence to classify it); these
+are deliberately different failure modes at different pipeline stages,
+and conflating them into one ratio would hide which stage actually
+degraded. This is the same "measurement before aggregation" principle
+(§14) that keeps entropy, drift, and invariant violations from
+collapsing into one score — extended here to keep *extraction*
+confidence and *role-inference* completeness from collapsing into each
+other either. A node's `Unknown` rate remains separately visible (every
+`RoleInferenceResult`/`PipelineReport` already carries every node's
+role, `Unknown` included) rather than being folded into `C`.
+
+**Rationale / evidence:** No code change — this amendment formalizes the
+interpretation `AnalysisConfidence` (Increment 8) already implements,
+the same shape as Amendment 2. See `AnalysisConfidenceTest` for the
+existing behavior this interpretation describes.
+
+---
+
 ## Non-normative implementation note — determinism and `Map.copyOf`
 
 Not a specification amendment (no conceptual change), but worth

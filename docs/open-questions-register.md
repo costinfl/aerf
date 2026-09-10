@@ -11,6 +11,26 @@ just discussed — an entry here is not yet settled.
 Update this file whenever an increment closes with an open question, and
 prune it whenever one is resolved by a later increment or patch.
 
+**Triaged in Increment 21.** AERF v0.4's own MVP freeze table (§11) was
+completed across Increments 1–10; Increments 11–21 built the extraction
+adapter, ran it against real code, and closed every open question that
+real evidence or a text ambiguity could actually settle (#1's named
+failure case, #3, #17, #18 — see Resolved below). Every entry still
+listed below (#2, #4, #5, #6, #8, #9, #10, #11, #12, #13, #14, #15, #16)
+was re-read against that same bar and left open deliberately, not for
+lack of attention: each depends on a subsystem that does not exist yet
+and was never commissioned — a governance-configuration format (#2, #4,
+#6, #11), the invariant DSL's own further design (#9, #15, #16), a
+baseline-storage mechanism (#12), or a real product decision no
+governance consumer has asked for yet (#5, #8, #10, #13, #14). Inventing
+any of these now would mean designing a speculative subsystem nobody has
+asked for, which is exactly the kind of guessing this project's own
+practice (recorded throughout this register) has consistently declined
+to do — a decision here is deferred, not skipped, until something with
+an actual shape exists to decide against. **v0.4 and its patches, in the
+sense of "the model this project committed to building," are complete;
+what remains below is genuine post-v0.4 backlog.**
+
 ---
 
 ### 1. When does seed-only role classification actually fail?
@@ -82,15 +102,6 @@ evidence classes: Structural, Semantic, Graph, Governance. Seed rules
 directly (distinct from the invariant DSL in §6, which *constrains*
 roles/edges rather than *assigning* them). Needs a decision once
 governance configuration has a concrete shape.
-
-### 3. How should per-node `Unknown` and graph-wide analysis confidence (§5.4) interact?
-
-*From: Increments 2 and 4.* §5.4 defines confidence as "resolved
-relevant relations / total extracted relevant relations" — a
-graph-wide, relation-centric measure. Role inference's `Unknown` is a
-per-node outcome. Does a node stuck at `Unknown` count as an
-"unresolved relation" for every edge touching it? Best answered when
-§5.4 is actually implemented, not guessed at now.
 
 ### 4. Should `LayerPolicy` support per-subsystem matrices, not just one global one?
 
@@ -165,7 +176,15 @@ graph-wide ratio (resolved/total edges), independent of any specific
 entropy dimension. §5.4 doesn't say whether a governance consumer should
 instead see "persistence entropy computed at 90% confidence" alongside
 the persistence score itself. Not decided; the graph-wide reading was
-implemented as the more literal one.
+implemented as the more literal one. Distinct from #3 (resolved as
+Amendment 7): that question was whether a node's *role* outcome should
+affect confidence at all (no); this one is whether confidence should
+additionally be computed once per entropy dimension, using each
+calculator's own `relevantRelations` subset, alongside the existing
+graph-wide figure — a real, currently unbuilt feature (a second field per
+metric in `PipelineReport`/the JSON schema/the dashboard), not a text
+ambiguity to interpret. Left for a future increment if a governance
+consumer actually asks for it.
 
 ### 14. How does the full drift-aware risk model `R` (§5.3) eventually combine with invariant violations (§6)?
 
@@ -200,6 +219,14 @@ just three independently-computed numbers with no stated relationship.
 
 ## Resolved (moved to the v0.4.1 patch, kept here for traceability)
 
+- ~~How should per-node `Unknown` and graph-wide analysis confidence
+  (§5.4) interact?~~ → Amendment 7, `aerf-v0.4.1-patch.md`: they don't -
+  `AnalysisConfidence` tracks whether the *graph* resolved an edge's
+  endpoints (an extraction-stage question), never a node's `Role`
+  (a role-inference-stage question); no code change was needed, since
+  `AnalysisConfidence`'s Increment 8 implementation already only ever
+  checked `NodeRef.Resolved`, never `Role`. Distinct from #13, which
+  stays open.
 - ~~Should the canonical model have a structural relation from a FUNCTION
   node to its declaring COMPONENT node?~~ → resolved in Increment 21
   (`docs/increment-21-*.md`, AERF v0.4.1 patch Amendment 6): yes,
