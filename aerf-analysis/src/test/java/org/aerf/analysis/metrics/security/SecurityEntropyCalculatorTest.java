@@ -42,6 +42,25 @@ class SecurityEntropyCalculatorTest {
     }
 
     @Test
+    void allOpportunitiesFlaggedGivesTheUpperBoundOfOne() {
+        // AERF v0.4 section 4: each entropy dimension is normalized to
+        // [0,1]; 1 is the defined maximum within the measurement universe.
+        // flagged is a subset of opportunities by construction, so this
+        // pins the boundary explicitly for security entropy the same way
+        // it is pinned for layer/cycle/persistence.
+        Graph graph = Graph.builder()
+                .addNode(viewNode("a.jsp", List.of(Evidence.of("jsp", "renders as unescaped output", ExtractionFidelity.L1_SYNTAX))))
+                .addNode(viewNode("b.jsp", List.of(Evidence.of("jsp", "renders as unescaped output", ExtractionFidelity.L1_SYNTAX))))
+                .build();
+
+        SecurityEntropyResult result = calculator.compute(graph);
+
+        assertEquals(2, result.opportunities().size());
+        assertEquals(2, result.flagged().size());
+        assertEquals(OptionalDouble.of(1.0), result.value());
+    }
+
+    @Test
     void viewNodesWithNoRenderingEvidenceContributeNoOpportunities() {
         Graph graph = Graph.builder()
                 .addNode(viewNode("blank.jsp", List.of()))

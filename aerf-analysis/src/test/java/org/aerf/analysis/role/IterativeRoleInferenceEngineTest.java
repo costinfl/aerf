@@ -26,6 +26,32 @@ class IterativeRoleInferenceEngineTest {
             DefaultGraphRefinementRules.illustrativeRules());
 
     @Test
+    void everyNodeReceivesARoleIncludingNodesThatStayUnknown() {
+        // AERF v0.4 section 3: role inference must be total - every node
+        // gets a role, and Unknown is a valid, expected outcome rather
+        // than a missing result. "unclassifiable" here has no seed
+        // evidence and no resolvable supertype for graph refinement to
+        // use, so it is exactly the case totality must still cover.
+        Graph graph = Graph.builder()
+                .addNode(Node.of(NodeId.of("classifiable"), NodeType.COMPONENT, Role.UNKNOWN, Map.of(),
+                        List.of(Evidence.of("spring-data", "spring-data evidence observed", ExtractionFidelity.L2_SYMBOL_RESOLVED))))
+                .addNode(Node.of(NodeId.of("unclassifiable"), NodeType.COMPONENT, Role.UNKNOWN, Map.of(), List.of()))
+                .build();
+
+        IterativeRoleInferenceResult result = engine.infer(graph);
+
+        assertEquals(graph.nodes().size(), result.results().size(), "every node in the graph must appear in the result");
+        for (Node node : graph.nodes()) {
+            RoleInferenceResult nodeResult = result.results().get(node.id());
+            assertTrue(nodeResult != null, node.id() + " is missing from the totalized result entirely");
+            assertTrue(nodeResult.role() != null, node.id() + " has a null role rather than a concrete role or UNKNOWN");
+        }
+        assertEquals(Role.PERSISTENCE, result.results().get(NodeId.of("classifiable")).role());
+        assertEquals(Role.UNKNOWN, result.results().get(NodeId.of("unclassifiable")).role(),
+                "no evidence and no resolvable supertype: UNKNOWN is the correct total result, not an absent one");
+    }
+
+    @Test
     void aTwoHopInheritanceChainNeedsTwoRefinementPassesToFullyResolve() {
         // C is seeded directly (spring-data evidence). B extends C but has no
         // seed evidence of its own. A extends B but has no seed evidence of its

@@ -188,6 +188,34 @@ class PersistenceEntropyCalculatorTest {
     }
 
     @Test
+    void weightedValueIsNotBoundedToOneUnlikeThePlainRatio() {
+        // AERF v0.4 section 4's [0,1] normalization applies to value() -
+        // the plain "flagged / relevant" count ratio every other entropy
+        // dimension also uses. weightedValue() (Amendment 3's distinct,
+        // separately-reported "evidence-weighted" score from Appendix B)
+        // is explicitly NOT that dimension: its own javadoc says it is
+        // "strictly greater [than value()] whenever a flagged edge is
+        // backed by more than one independently observed iterated call
+        // site." This test proves that headroom is real, not merely
+        // theoretical - a single relevant edge backed by three iterated
+        // evidence items weighs 3, giving 3.0, not something clamped to 1.
+        Graph graph = Graph.builder()
+                .addNode(node("service", NodeType.COMPONENT, Role.APPLICATION))
+                .addNode(node("repo", NodeType.COMPONENT, Role.PERSISTENCE))
+                .addEdge(NodeRef.resolved(NodeId.of("service")), NodeRef.resolved(NodeId.of("repo")), RelationType.CALL,
+                        List.of(
+                                Evidence.of("java", "iterated call site 1", ExtractionFidelity.L2_SYMBOL_RESOLVED, ExecutionContext.ITERATED),
+                                Evidence.of("java", "iterated call site 2", ExtractionFidelity.L2_SYMBOL_RESOLVED, ExecutionContext.ITERATED),
+                                Evidence.of("java", "iterated call site 3", ExtractionFidelity.L2_SYMBOL_RESOLVED, ExecutionContext.ITERATED)))
+                .build();
+
+        PersistenceEntropyResult result = calculator.compute(graph);
+
+        assertEquals(OptionalDouble.of(1.0), result.value());
+        assertEquals(OptionalDouble.of(3.0), result.weightedValue());
+    }
+
+    @Test
     void theFixtureGraphsExistingCallsAreNotFlaggedSinceNoneClaimIteration() {
         Graph graph = CanonicalSampleGraphs.layeredOrderSlice();
 

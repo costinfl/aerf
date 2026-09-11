@@ -84,6 +84,30 @@ class LayerEntropyCalculatorTest {
     }
 
     @Test
+    void allRelevantEdgesViolatingGivesTheUpperBoundOfOne() {
+        // AERF v0.4 section 4: each entropy dimension is normalized to
+        // [0,1], with 1 meaning the defined maximum within the measurement
+        // universe. violatingEdges is a subset of relevantEdges by
+        // construction (LayerEntropyCalculator.compute only ever adds an
+        // edge to violating after already adding it to relevant), so the
+        // ratio can never exceed 1 - this pins the boundary explicitly
+        // rather than leaving it merely implied by the code shape.
+        Node presentation = Node.of(NodeId.of("ui"), NodeType.COMPONENT, Role.PRESENTATION, Map.of(), List.of());
+        Node persistence = Node.of(NodeId.of("repo"), NodeType.COMPONENT, Role.PERSISTENCE, Map.of(), List.of());
+        Graph graph = Graph.builder()
+                .addNode(presentation)
+                .addNode(persistence)
+                .addEdge(NodeRef.resolved(NodeId.of("ui")), NodeRef.resolved(NodeId.of("repo")), RelationType.CALL, List.of())
+                .build();
+
+        LayerEntropyResult result = LayerEntropyCalculator.withCallAndDependsRelations(fixturePolicy()).compute(graph);
+
+        assertEquals(1, result.relevantEdges().size());
+        assertEquals(1, result.violatingEdges().size());
+        assertEquals(OptionalDouble.of(1.0), result.value());
+    }
+
+    @Test
     void anEdgeBetweenRolesUnknownToThePolicyIsExcluded() {
         Node external = Node.of(NodeId.of("ext"), NodeType.COMPONENT, Role.EXTERNAL, Map.of(),
                 List.of(Evidence.of("java", "third-party client", ExtractionFidelity.L1_SYNTAX)));
