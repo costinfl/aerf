@@ -161,14 +161,6 @@ specific concern reliably (e.g. `finding.concern == "xss"`), which would
 push toward some agreed vocabulary — even if not a fixed enum, at least
 documented string constants. Left open pending the DSL's actual design.
 
-### 12. How should baseline-relative drift (§5.3) represent and load a baseline?
-
-*From: Increment 8.* `Delta_d = E_d^t - E_d^0` is a trivial function
-given two numbers, but AERF has no representation yet of *storing* a
-prior measurement to diff against. Deliberately deferred until
-JSON/reporting (still later on the MVP list) gives it somewhere to live,
-rather than bolting on an ad hoc storage mechanism now.
-
 ### 13. Should confidence (§5.4) be graph-wide only, or per-dimension too?
 
 *From: Increment 8.* `AnalysisConfidence` currently computes one
@@ -219,6 +211,20 @@ just three independently-computed numbers with no stated relationship.
 
 ## Resolved (moved to the v0.4.1 patch, kept here for traceability)
 
+- ~~How should baseline-relative drift (§5.3) represent and load a
+  baseline?~~ → the *storage* half was resolved incidentally by
+  Increment 19 (the dashboard's Supabase `scans` table stores every
+  historical measurement per project). The *calculation* half — this
+  question's actual subject, `Delta_d = E_d^t - E_d^0` — turned out to
+  still be entirely unimplemented anywhere in the Java reactor,
+  surfaced during the v0.4/v0.4.1 contract reconciliation
+  (`docs/aerf-v0.4-reconciliation-evidence.md`, item V04-CAL-02) as a
+  genuine remediation, not a new feature: v0.4 §5.3 requires it
+  outright. Resolved by adding `EntropySnapshot`/`DimensionDrift`/
+  `Drift` to `aerf-analysis.calibration`, a pure calculation matching
+  the existing calculator package's style, deliberately stopping short
+  of any storage/API layer of its own — see `Drift`'s own javadoc for
+  why that stayed out of scope here.
 - ~~How should per-node `Unknown` and graph-wide analysis confidence
   (§5.4) interact?~~ → Amendment 7, `aerf-v0.4.1-patch.md`: they don't -
   `AnalysisConfidence` tracks whether the *graph* resolved an edge's
