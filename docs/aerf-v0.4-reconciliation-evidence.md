@@ -7,31 +7,70 @@ v0.4.1 status report at commit `cc602de`).
 
 ---
 
+## Correction record (read this first)
+
+The version of this report produced at commit `060e242` disposed
+**V04-CAL-02 (baseline-relative drift, §5.3) as "REMEDIATION REQUIRED →
+REMEDIATED"** on the strength of a new, tested `Drift.compute` formula
+alone. That classification was **premature and is corrected here**: a
+follow-up review asked this report to specifically trace the Increment
+19 baseline store through the actual reporting pipeline and check
+whether drift was *observable from a stored baseline and a current
+scan* — not just computable from hand-built inputs in a unit test. It
+was not. Tracing `PipelineReport` → `Main.toJson` → the JSON every
+report writer in `aerf-report` produces turned up two real gaps the
+first pass missed:
+
+1. **No code anywhere in the reactor turned a `PipelineReport` (or its
+   JSON) into the `EntropySnapshot` `Drift.compute` requires.** The
+   formula existed in complete isolation from the pipeline that is
+   supposed to produce its inputs.
+2. **`PipelineReport` and its JSON carry no subject/project
+   identifier at all** — `EntropySnapshot.subjectId` had nothing in
+   the pipeline's own output to be populated from.
+
+This means the original disposition was wrong at the time it was
+written: the correct status then was closer to "REMEDIATION REQUIRED —
+partially addressed (formula implemented and unit-tested; not reachable
+from an actual scan)," not "REMEDIATED." This is now fixed for real
+(see V04-CAL-02 below and commit `8740ea6`), and this report is
+corrected to describe both what was wrong and what closes it — per this
+process's own rule to never hide a deviation once found, extended here
+to a mistake in the report itself, not just in the code it was
+reviewing. **No ledger disposition *category* changes as a result**
+(V04-CAL-02 is still, correctly, one "REMEDIATION REQUIRED → REMEDIATED"
+item out of 21; the bucket counts in 13.2's summary were already
+right) — what changes is that the remediation described is now the
+real one, and the record says so plainly rather than presenting the
+incomplete first pass as finished.
+
+---
+
 ## 13.1 Execution summary
 
 | Field | Value |
 |---|---|
 | Repository | `costinfl/aerf` |
 | Branch | `claude/aerf-core-domain-model-gwumun` |
-| Commit before reconciliation changes | `89223f039a6b7d6bbd1a4ac73216a3696fdaff12` ("Add the v0.4.1 status report and its generator") |
-| Commit after reconciliation implementation | `060e24265782af58d4cff4cce27a8b2fcaa3b12a` ("v0.4 contract reconciliation: implement drift, protect entropy bounds and role totality") |
-| Intervening commit | `759c738` — adds `docs/aerf-v0.4-contract-reconciliation.md` itself, no code change |
-| Verification date/time (UTC) | 2026-09-11T21:14:45Z |
+| Commit before any reconciliation work | `89223f039a6b7d6bbd1a4ac73216a3696fdaff12` ("Add the v0.4.1 status report and its generator") |
+| Commit after round 1 (initial reconciliation) | `060e24265782af58d4cff4cce27a8b2fcaa3b12a` ("v0.4 contract reconciliation: implement drift, protect entropy bounds and role totality") — **the round whose V04-CAL-02 disposition this report corrects** |
+| Commit after round 2 (this correction) | `8740ea6d24039360fc51da6cfd2402c9bdb43cbc` ("Close the real V04-CAL-02 gap: wire Drift to an actual PipelineReport") |
+| Intervening commits | `759c738` (adds the reconciliation instructions doc), `ff61fa4` (round 1's evidence report), `d74510c` (register housekeeping) — no code changes |
+| Verification date/time (UTC), round 1 | 2026-09-11T21:14:45Z |
+| Verification date/time (UTC), round 2 | 2026-09-12T21:23:47Z |
 | Java | OpenJDK 21.0.10 (Temurin/Ubuntu build 21.0.10+7) |
 | Maven | Apache Maven 3.9.11 |
-| Test command (baseline, at `89223f0`) | `mvn -B test` from repository root |
-| Test command (after changes, at `060e242`) | `mvn -B test` from repository root |
-| Baseline: total / passed / failed / skipped | 219 / 219 / 0 / 0 |
-| After changes: total / passed / failed / skipped | 231 / 231 / 0 / 0 |
-| Build result (both runs) | `BUILD SUCCESS` |
-| Net new tests this session | 12 (`DriftTest` ×8; one new test each in `LayerEntropyCalculatorTest`, `SecurityEntropyCalculatorTest`, `PersistenceEntropyCalculatorTest`, `IterativeRoleInferenceEngineTest`) |
+| Test command (every run below) | `mvn -B test` from repository root |
+| Baseline (`89223f0`): total / passed / failed / skipped | 219 / 219 / 0 / 0 |
+| After round 1 (`060e242`): total / passed / failed / skipped | 231 / 231 / 0 / 0 |
+| After round 2 (`8740ea6`): total / passed / failed / skipped | 237 / 237 / 0 / 0 |
+| Build result (all three runs) | `BUILD SUCCESS` |
+| Net new tests, round 1 | 12 (`DriftTest` ×8; one new test each in `LayerEntropyCalculatorTest`, `SecurityEntropyCalculatorTest`, `PersistenceEntropyCalculatorTest`, `IterativeRoleInferenceEngineTest`) |
+| Net new tests, round 2 | 6 (`DriftJsonTest` ×3; `DriftEndToEndTest` ×1; two new tests in `PipelineTest`) |
 
-Both counts are taken directly from `mvn -B test` output, not
-estimated. The baseline run was executed before any reconciliation
-code was written (immediately after confirming `git status` was clean
-at `89223f0`); the after-changes run was executed after committing
-`060e242`, with `git status --short` showing a clean tree matching
-exactly the files intentionally changed.
+All counts are taken directly from `mvn -B test` output, not estimated.
+Each run was executed on a clean tree immediately after committing that
+round's changes, confirmed with `git status --short` before running.
 
 One additional command was run and its output is evidence for
 V04-PIPE-03 specifically, not part of either full-suite run:
@@ -67,7 +106,7 @@ Dispositions use the exact vocabulary from
 | V04-ENT-06 | DEFERRED BY CONTRACT | n/a | none | none | `grep -rli "modal" --include=*.java .` (excluding `target/`) returns zero matches anywhere in the reactor. No `NodeType`/evidence concept for modal implementations exists. Confirmed as intentionally out of the MVP freeze (v0.4 §11), not an oversight. |
 | V04-ENT-07 | DEFERRED BY CONTRACT | n/a | none | none | `grep -rli "jstl\|webflow\|tiles" --include=*.java .` returns one hit: a comment in `aerf-pipeline/src/main/java/org/aerf/pipeline/Main.java` line 76 ("section 11 defers JSP/WebFlow...") acknowledging the deferral — no extraction or metric code exists. Matches the reconciliation instructions' explicit direction not to invent this. |
 | V04-CAL-01 | CONFORMING | `CalibrationProfileTest.weightsSummingToOneAreAccepted`, `.weightsNotSummingToOneAreRejected`, `.aZeroWeightedDimensionIsAllowedAsLongAsTheTotalIsOne`, `.aNegativeWeightIsRejectedAtTheDimensionItself`; `AggregatedEntropyTest.computesTheWeightedSumWithLinearCalibration`, `.appliesEachDimensionsOwnCalibrationFunction`, `.anUndefinedWeightedDimensionMakesTheAggregateUndefined`, `.aZeroWeightedDimensionBeingUndefinedDoesNotBlockAggregation`, `.aMissingKeyInTheValueMapIsTreatedTheSameAsUndefined`; `CalibrationFunctionsTest.*`; `CalibrationIntegrationTest.aggregatesAllFourMvpDimensionsAndClassifiesMaturity` | none | none | `CalibrationProfile`'s constructor enforces `sum(w_d) == 1.0` (tolerance `1e-9`) or throws — an invalid configuration cannot be used at all, stronger than the bare formula in §5.1. No universal weights or thresholds are asserted anywhere in the codebase (`CalibrationFunction`'s own javadoc: "No implementation of this interface should be selected or parameterized as a default"). |
-| V04-CAL-02 | **REMEDIATION REQUIRED → REMEDIATED** | none existed | `DriftTest` (8 tests: `deltaIsCurrentMinusBaselinePerSection53`, `negativeDeltaMeansImprovement`, `baselineAndCurrentValuesRemainSeparatelyAvailableAlongsideTheDelta`, `aDimensionUndefinedInTheBaselineContributesNoEntry`, `aDimensionUndefinedInTheCurrentMeasurementContributesNoEntry`, `aDimensionMissingFromTheBaselineEntirelyContributesNoEntry`, `refusesToCompareMeasurementsOfDifferentSubjects`, `multipleDimensionsAreComputedIndependently`) | Added `aerf-analysis/src/main/java/org/aerf/analysis/calibration/{EntropySnapshot,DimensionDrift,Drift}.java` | Searched the full reactor for `drift`/`baseline` before writing anything (`grep -rl "Drift\|drift\|baseline\|Baseline" --include=*.java .`, excluding `target/`); the only hit was a comment in `aerf-report/CalibrationJson.java` referencing the open-questions register, no code. `Drift.compute(EntropySnapshot baseline, EntropySnapshot current)` implements `Delta_d = E_d^t - E_d^0` exactly, follows the existing calculator package's pure-function shape (no I/O, matching `AggregatedEntropy`/`Maturity`), refuses to compare snapshots whose `subjectId`s differ (`IllegalArgumentException`, tested by `refusesToCompareMeasurementsOfDifferentSubjects`), and leaves a dimension undefined in either snapshot out of the result entirely rather than treating it as zero drift — the same "undefined stays undefined" policy `AggregatedEntropy` already uses. Deliberately does **not** add any storage/persistence API: see 13.4 for why. |
+| V04-CAL-02 | **REMEDIATION REQUIRED → REMEDIATED** (corrected; see the Correction record above — round 1 alone was insufficient) | none existed | Round 1: `DriftTest` (8 tests). Round 2: `PipelineTest.entropyByDimensionMatchesEachResultsOwnValueUnderPipelinesOwnDimensionNames`, `.toEntropySnapshotCarriesTheGivenSubjectIdAndTheSameValuesAsEntropyByDimension`; `DriftJsonTest` (3 tests: `oneDimensionSerializesItsBaselineCurrentAndDelta`, `anEmptyDriftMapSerializesAsAnEmptyObject`, `multipleDimensionsPreserveInsertionOrder`); `DriftEndToEndTest.aRealPipelineReportProducesNonZeroDriftAgainstAPriorBaselineAndSerializesToJson` — the actual end-to-end proof | Round 1 added `aerf-analysis/.../{EntropySnapshot,DimensionDrift,Drift}.java` (the formula, in isolation). Round 2 added: `PipelineReport.entropyByDimension()` (the four-dimension map `Pipeline.run` already builds internally for `AggregatedEntropy`, reconstructed from the report's own stored results); `PipelineReport.toEntropySnapshot(subjectId)` (packages a real report as `Drift`'s input); `aerf-report`'s `DriftJson` (serializes a computed drift map, matching every other metric's writer). Also fixed a real latent bug round 1 introduced: `EntropySnapshot`'s constructor used `Map.copyOf`, which — per this project's own documented Increment 1 regression, cited in `aerf-v0.4.1-patch.md`'s non-normative note — does not guarantee preserving a source map's iteration order; left as-is, a `PipelineReport`'s drift could have serialized its dimensions in a different order on different JVM invocations of the identical input, violating §14. Now wrapped in an explicit `LinkedHashMap`. | **Traced the actual path, not just the formula.** `Main.toJson(PipelineReport)` (`aerf-pipeline/src/main/java/org/aerf/pipeline/Main.java`) was read in full: it serializes `layerEntropy.value`, `cycleEntropy.value`, `persistenceEntropy.value`, `securityEntropy.value` under each metric's own nested key — the raw numbers `Drift` needs are present in every report — but nothing in `aerf-report` reads JSON back (confirmed: `aerf-report/src/main/java/org/aerf/report/` contains eight files, every one a writer — `JsonWriter`, `MetricsJson`, `CalibrationJson`, `InvariantJson`, `GraphJson`, `JsonObjectBuilder`, `JsonValue`, `JsonSupport` — no reader/parser anywhere), and `PipelineReport`'s record components (`graph`, `roleRefinementPasses`, four entropy results, calibration values, invariants, diagnostics) include no project/subject identifier at all. Round 1's `Drift.compute` was therefore correct in isolation but unreachable from a real scan — there was no code path from "a `PipelineReport` just came out of `Pipeline.run`" to "here are two `EntropySnapshot`s to diff." Round 2 closes exactly that gap without adding any storage/API layer (the boundary `Drift`'s own javadoc already drew and this round did not cross): `entropyByDimension()`/`toEntropySnapshot()` work only on a `PipelineReport` already in hand, `subjectId` is caller-supplied rather than invented, and `DriftEndToEndTest` proves the whole chain with a genuine `Pipeline.run` output on one side (asserting its real, live-computed values — layer `1.0`, persistence `0.5` — match `PipelineTest`'s own known fixture numbers) rather than two hand-built snapshots. |
 | V04-CAL-03 | CORRECTED BY v0.4.1 | `AnalysisConfidenceTest.anEmptyGraphIsUndefinedNotZeroOrOne`, `.allResolvedEdgesGiveFullConfidence`, `.oneUnresolvedEdgeOutOfTwoGivesOneHalf`, `.memberOfEdgesAreExcludedEntirelyEvenWhenUnresolved`, `.theFixtureGraphHasFourOfFiveEdgesResolved` | none | none | `AnalysisConfidence.compute` excludes `RelationType.MEMBER_OF` from both numerator and denominator (Amendment 6) and never inspects a node's `Role` at all (Amendment 7) — confirmed by reading the full method body. `memberOfEdgesAreExcludedEntirelyEvenWhenUnresolved` specifically proves the exclusion is unconditional (an artificially *unresolved* `MEMBER_OF` edge still contributes nothing), not merely moot because real `MEMBER_OF` edges happen to always resolve. |
 | V04-CAL-04 | CONFORMING | `MaturityTest.isOneMinusTotalEntropy`, `.isUndefinedWhenTotalEntropyIsUndefined`, `.classifiesBelowFortyAsChaotic`, `.classifiesTheInteriorBoundariesAsLowerInclusive`, `.classifiesExactlyNinetyAsControlledNotOptimized`, `.classifiesAboveNinetyAsOptimized` | none | none | `Maturity.compute` is exactly `1 - E_total`, undefined when `E_total` is undefined. `MaturityLevel.classify` implements all five provisional levels with the two explicit strict boundaries (`< 0.40`, `> 0.90`) honored exactly. The interior-boundary tie-break is a documented deviation — see 13.4. |
 | V04-GOV-01 | CONFORMING | `InvariantEvaluatorNodeScopeTest.aDataNodeWithAKnownRolePasses`, `.aDataNodeWithUnknownRoleViolates`, `.eachViolatingNodeIsReportedSeparately`; `InvariantEvaluatorEdgeScopeTest.theFixtureGraphHasExactlyOneViolationTheDeliberateOne`; `InvariantEvaluatorGraphScopeTest.underBudgetHolds`, `.overBudgetViolatesAsASingleGraphLevelFinding` | none | none | `InvariantViolation` carries evidence (the violating node/edge/graph-level subject); a satisfied invariant reports no violations (`aHoldingInvariantSerializesAnEmptyViolationsArray` in `InvariantJsonTest`, cross-referenced under V04-REPORT-01). §6.1's weighted `E_inv` aggregation is explicitly not implemented — that is open-questions-register #15, listed as DEFERRED in 13.5, not silently added here. |
@@ -77,7 +116,7 @@ Dispositions use the exact vocabulary from
 | V04-PIPE-03 | CONFORMING | POM inspection: `aerf-model/pom.xml`, `aerf-analysis/pom.xml`, `aerf-report/pom.xml`, `aerf-extraction/pom.xml` each carry a `maven-enforcer-plugin` `ban-openrewrite` execution excluding `org.openrewrite:*`, with `<fail>true</fail>` | **New evidence this session**: a real negative-control experiment (not merely POM inspection) — see 13.1 | none (POMs already correct; experiment reverted, no change retained) | `mvn -pl aerf-model -B validate` with a temporary `org.openrewrite:rewrite-java:8.90.4` dependency added produced `BUILD FAILURE` with `Rule 0: org.apache.maven.enforcer.rules.dependency.BannedDependencies failed`, naming the exact banned artifact and its transitive closure (`rewrite-core`, `rewrite-yaml`, `rewrite-properties`, `rewrite-xml`). After `git checkout -- aerf-model/pom.xml`, the same command produced `BUILD SUCCESS` with the rule explicitly reported as `passed`. **Precision note** (see 13.4): `aerf-pipeline` and `aerf-openrewrite` are *not* banned — necessarily, since `aerf-pipeline` depends on the adapter and `aerf-openrewrite` *is* the adapter — confirmed by reading both POMs, which document this exemption in their own comments. The v0.4.1 status report's summary phrase "banned from every module except the adapter" is imprecise (it is every module except the adapter *and* the pipeline that composes it); the boundary itself — the canonical graph never exposes an OpenRewrite type — is intact regardless. |
 | V04-REPORT-01 | CONFORMING | `InvariantJsonTest.theFixtureGraphsViolationSerializesWithFullEdgeEvidence`, `.aHoldingInvariantSerializesAnEmptyViolationsArray`; `CalibrationJsonTest.aDefinedTotalEntropySerializesAsANumber`, `.anUndefinedTotalEntropySerializesAsNullNotZero`, `.maturityLevelSerializesAsItsName`; `GraphJsonTest.*`; `MetricsJsonTest.*`; `JsonWriterTest.*` | none | none | Findings retain evidence: `theFixtureGraphsViolationSerializesWithFullEdgeEvidence` confirms a violation's full edge (and, through it, evidence) round-trips into JSON, not just a bare pass/fail. Uncertainty stays visible: `anUndefinedTotalEntropySerializesAsNullNotZero` confirms an undefined metric serializes as JSON `null`, never a silently-substituted `0`. |
 
-**Ledger summary:** 21 items. 12 CONFORMING (some with a DEFERRED-BY-CONTRACT sub-scope noted inline: V04-ENT-05, V04-PIPE-02), 6 CORRECTED BY v0.4.1, 2 DEFERRED BY CONTRACT outright (V04-ENT-06, V04-ENT-07), 1 CONFORMING + IMPROVEMENT (V04-ENT-03), 1 REMEDIATION REQUIRED → remediated (V04-CAL-02). Zero items were left UNVERIFIED and zero items were left OPEN/UNDECIDED — every item had enough evidence in the codebase, its tests, or a direct experiment run this session to reach a disposition.
+**Ledger summary:** 21 items. 12 CONFORMING (some with a DEFERRED-BY-CONTRACT sub-scope noted inline: V04-ENT-05, V04-PIPE-02), 6 CORRECTED BY v0.4.1, 2 DEFERRED BY CONTRACT outright (V04-ENT-06, V04-ENT-07), 1 CONFORMING + IMPROVEMENT (V04-ENT-03), 1 REMEDIATION REQUIRED → remediated (V04-CAL-02). These bucket counts are unchanged from round 1 — the correction recorded above changed *what actually satisfies* V04-CAL-02's REMEDIATED status, not which bucket it sits in. Zero items are UNVERIFIED and zero are OPEN/UNDECIDED.
 
 ---
 
@@ -108,8 +147,8 @@ Every scenario from `docs/aerf-v0.4-contract-reconciliation.md`, mapped to the r
 | Security entropy / Technology presence alone is not a security violation | `DefaultSecurityRulesTest.escapedOutputIsAnOpportunityButNotAWeakness`, `.aViewNodeWithNoRenderingEvidenceIsNotAnOpportunityAtAll` |
 | Security entropy / XSS evidence can produce a security finding | `DefaultSecurityRulesTest.unescapedOutputIsFlaggedAsAWeakness`, `SecurityEntropyCalculatorTest.findingsRetainTraceableRationale` |
 | Entropy aggregation / Aggregate dimensions using configured weights | `AggregatedEntropyTest.computesTheWeightedSumWithLinearCalibration`, `.appliesEachDimensionsOwnCalibrationFunction` |
-| Baseline-relative drift / Calculate drift against a recorded baseline | `DriftTest.deltaIsCurrentMinusBaselinePerSection53` **(new this session)** |
-| Baseline-relative drift / Preserve baseline identity | `DriftTest.refusesToCompareMeasurementsOfDifferentSubjects` **(new this session)** |
+| Baseline-relative drift / Calculate drift against a recorded baseline | `DriftTest.deltaIsCurrentMinusBaselinePerSection53` (formula, round 1); `DriftEndToEndTest.aRealPipelineReportProducesNonZeroDriftAgainstAPriorBaselineAndSerializesToJson` (round 2 — the same formula computed from a genuine `Pipeline.run` output, not hand-built inputs, and carried through to serialized JSON) |
+| Baseline-relative drift / Preserve baseline identity | `DriftTest.refusesToCompareMeasurementsOfDifferentSubjects` |
 | Analysis confidence / Confidence measures evidence resolution | `AnalysisConfidenceTest.oneUnresolvedEdgeOutOfTwoGivesOneHalf` |
 | Analysis confidence / Confidence is independent of role assignment | Structural: `AnalysisConfidence.compute` never reads `Node.role()` (confirmed by reading the method); no role-outcome input exists to vary in a test, which is the point — see V04-CAL-03 in 13.2 |
 | Analysis confidence / MEMBER_OF does not inflate confidence | `AnalysisConfidenceTest.memberOfEdgesAreExcludedEntirelyEvenWhenUnresolved` |
@@ -149,11 +188,13 @@ Every place this session found the implementation differing from v0.4's literal 
 
 6. **`MaturityLevel`'s interior boundaries (0.40, 0.60, 0.75) are resolved lower-inclusive, a specific tie-break v0.4 §5.5's own hyphenated-range notation does not itself make.** This is documented directly in `MaturityLevel`'s own javadoc as "adopted here as an implementation decision," but — unlike the seven items above — it was never elevated to a numbered `aerf-v0.4.1-patch.md` amendment. This session did not add one (amending the patch document is outside the reconciliation instructions' scope, which asks for test protection and remediation, not new patch authorship), but flags it here explicitly per the "never hide a deviation simply because tests pass" instruction. Existing tests (`classifiesTheInteriorBoundariesAsLowerInclusive`, `classifiesExactlyNinetyAsControlledNotOptimized`) already protect the chosen behavior; no further action taken.
 
-7. **§5.3's drift formula had no implementation at all anywhere in the reactor.** This is the session's one REMEDIATION REQUIRED item — see V04-CAL-02 in 13.2. Not previously corrected by any v0.4.1 amendment; the v0.4.1 status report's own outstanding-question #12 described the *storage* gap (now closed by Increment 19) without noting the *calculation* itself was also entirely absent from the Java codebase. Compensating change: implemented (see 13.2).
+7. **§5.3's drift formula had no implementation at all anywhere in the reactor.** This is the session's one REMEDIATION REQUIRED item — see V04-CAL-02 in 13.2. Not previously corrected by any v0.4.1 amendment; the v0.4.1 status report's own outstanding-question #12 described the *storage* gap (now closed by Increment 19) without noting the *calculation* itself was also entirely absent from the Java codebase. Compensating change: implemented in two rounds (see 13.2 and item 9 below).
 
 8. **The v0.4.1 status report's phrase "OpenRewrite dependencies are banned from every module except the adapter" is imprecise**: `aerf-pipeline` is also exempt, necessarily. This is a documentation-precision finding about the *status report*, not about the implementation (the implementation's own POM comments already state this correctly) or about v0.4 itself. No compensating change to code; flagged here so it is not silently carried forward as fact into a future v0.4.2 planning document. See V04-PIPE-03 in 13.2 for the full evidence.
 
-No deviation found in this session was hidden, and none required reverting a better implementation — every one of the eight above was either already corrected by a v0.4.1 amendment, a deliberate and now more-precisely-tested scope boundary, or the one genuine remediation (drift).
+9. **This report itself, in its round-1 form, overstated item 7's completion** — the deviation most worth flagging, since it is a mistake in the reconciliation process rather than in the code being reconciled. Round 1 implemented `Drift.compute` as a correct, well-tested pure formula and classified V04-CAL-02 as fully "REMEDIATED" without checking whether anything could actually call it with real data. It could not: no code turned a `PipelineReport` into the `EntropySnapshot` shape `Drift` requires, and `PipelineReport`/its JSON carried no subject identifier at all. A follow-up review caught this by asking the report to specifically trace the storage-to-drift path rather than accept the ledger's own claim. See the Correction record at the top of this document and V04-CAL-02 in 13.2 for the actual fix (round 2, commit `8740ea6`). Per the evidence-quality rule "never hide a deviation simply because tests pass": round 1's tests all passed; the gap was in what they proved, not in whether they ran.
+
+No deviation found in this session was hidden, and none required reverting a better implementation. Items 1-6 and 8 were already correctly handled (a v0.4.1 amendment, a deliberate and now more-precisely-tested scope boundary, or a documentation-precision note); item 7 is the one genuine code remediation, and item 9 is this report's own mistake in first describing it, corrected here rather than left standing.
 
 ---
 
@@ -172,13 +213,13 @@ Specifically checked against §10 and §11 of the reconciliation instructions:
 
 The one exception, and why it was unavoidable per the reconciliation instructions themselves: **V04-CAL-02 (drift)**. The instructions state explicitly, twice, that this item is different in kind from the rest of the outstanding-question list: "This is an important reconciliation item: it is not a new v0.4.2 invention" (§5) and "#12 is special... the reconciliation should test and, if necessary, remediate the missing wiring rather than treat drift as a new v0.4.2 invention" (§11). Section 5.3's formula is an explicit v0.4 MVP-scope requirement, not a deferred capability, so implementing it here is compliance with an existing contract item, not an unauthorized pull-forward of future work — the same distinction the instructions draw in their "Critical rule: distinguish missing v0.4 behaviour from deferred work."
 
-The implementation was also kept deliberately minimal per that same instruction: a pure calculation class with no storage/API surface, rather than building out the full "wiring" a dashboard or CLI might eventually want. See V04-CAL-02 in 13.2 and item 7 in 13.4.
+The implementation was also kept deliberately minimal per that same instruction, across both rounds: round 1 added a pure calculation class; round 2 (this correction) added exactly enough to make that calculation reachable from a real `PipelineReport` — a derived map, a snapshot factory, and a JSON writer, all built only from data the pipeline already computes — with no storage/API surface of its own. Loading a *stored* baseline (e.g. from the dashboard's Supabase `scans` table) remains outside this pipeline's reach, deliberately: that boundary was correct in round 1 and round 2 did not need to cross it to close the actual gap, which turned out to be entirely on the Java side (see V04-CAL-02 in 13.2). Neither round built any dashboard/CLI/storage feature — only what §5.3 itself requires.
 
 ---
 
 ## 13.6 Test failures
 
-None. Every test run in this session (`DriftTest`, `LayerEntropyCalculatorTest`, `SecurityEntropyCalculatorTest`, `PersistenceEntropyCalculatorTest`, `IterativeRoleInferenceEngineTest` individually while writing each; the full `mvn -B test` reactor run before and after) passed on its first execution. No test was retried after a failure, weakened, or deleted.
+None, across both rounds. Every test run (individually while writing each of `DriftTest`, `LayerEntropyCalculatorTest`, `SecurityEntropyCalculatorTest`, `PersistenceEntropyCalculatorTest`, `IterativeRoleInferenceEngineTest`, `DriftJsonTest`, `PipelineTest`'s two new tests, `DriftEndToEndTest`; the full `mvn -B test` reactor run at the end of each round) passed on its first execution. No test was retried after a failure, weakened, or deleted. The correction this document records was a **classification error in the evidence report**, not a test failure — every round-1 test passed then and still passes now; they were simply insufficient in scope to support the disposition round 1 gave them credit for.
 
 ---
 
@@ -186,4 +227,4 @@ None. Every test run in this session (`DriftTest`, `LayerEntropyCalculatorTest`,
 
 **`RECONCILIATION PASS`**
 
-Every one of the 21 V04-* contract items in `docs/aerf-v0.4-contract-reconciliation.md` reached a definite disposition — 12 CONFORMING, 6 CORRECTED BY v0.4.1, 2 DEFERRED BY CONTRACT, 1 CONFORMING + IMPROVEMENT, and the 1 REMEDIATION REQUIRED item (V04-CAL-02, baseline-relative drift) was actually remediated with a real implementation and 8 new tests, not merely noted. Every BDD scenario in the source document maps to a real, passing test or to structural evidence precisely explained where a literal test is not the right tool (an absent code path, a non-invocable "feature" whose absence is the point). Two genuinely new, previously-unprotected contract requirements were found and given tests during the survey itself — entropy's `[0,1]` upper bound for Layer and Security, and role inference's totality — neither of which the source reconciliation document had specifically named, surfaced by reading the actual calculator/engine code against the literal contract text rather than only checking off the document's own scenario list. The OpenRewrite module boundary (V04-PIPE-03) was verified by an actual, reproduced build failure and recovery, not by configuration inspection alone. Eight deviations from literal v0.4 prose were found and are recorded in 13.4, none hidden; no deferred/v0.5 capability was implemented. The full reactor test suite (231 tests across 6 modules) passes cleanly at the final commit, up from 219 at the session's start.
+Every one of the 21 V04-* contract items in `docs/aerf-v0.4-contract-reconciliation.md` now reaches a definite, *verified* disposition — 12 CONFORMING, 6 CORRECTED BY v0.4.1, 2 DEFERRED BY CONTRACT, 1 CONFORMING + IMPROVEMENT, and the 1 REMEDIATION REQUIRED item (V04-CAL-02, baseline-relative drift) actually remediated end-to-end: reachable from a real `Pipeline.run` output, not just a formula proven correct in isolation. That last point took two rounds to get right, and this report says so rather than presenting the corrected result as though round 1 had already been sufficient — see the Correction record at the top and deviation item 9 in 13.4. Every BDD scenario in the source document maps to a real, passing test or to structural evidence precisely explained where a literal test is not the right tool (an absent code path, a non-invocable "feature" whose absence is the point). Three genuinely new, previously-unprotected contract requirements were found and given tests during the survey itself, none specifically named by the source reconciliation document — entropy's `[0,1]` upper bound for Layer and Security, role inference's totality, and (found only by the follow-up review that prompted this correction) drift's actual reachability from a real report. The OpenRewrite module boundary (V04-PIPE-03) was verified by an actual, reproduced build failure and recovery, not by configuration inspection alone. Nine deviations from literal v0.4 prose — including this report's own round-1 overstatement — are recorded in 13.4, none hidden; no deferred/v0.5 capability was implemented in either round. The full reactor test suite (237 tests across 6 modules) passes cleanly at the final commit `8740ea6`, up from 219 before this reconciliation began and 231 after the incomplete first round.

@@ -220,11 +220,22 @@ just three independently-computed numbers with no stated relationship.
   surfaced during the v0.4/v0.4.1 contract reconciliation
   (`docs/aerf-v0.4-reconciliation-evidence.md`, item V04-CAL-02) as a
   genuine remediation, not a new feature: v0.4 §5.3 requires it
-  outright. Resolved by adding `EntropySnapshot`/`DimensionDrift`/
-  `Drift` to `aerf-analysis.calibration`, a pure calculation matching
-  the existing calculator package's style, deliberately stopping short
-  of any storage/API layer of its own — see `Drift`'s own javadoc for
-  why that stayed out of scope here.
+  outright. First addressed by adding `EntropySnapshot`/`DimensionDrift`/
+  `Drift` to `aerf-analysis.calibration` — but that pass alone was
+  itself incomplete, and briefly, incorrectly, recorded as done: a
+  follow-up review found nothing actually turned a real
+  `PipelineReport` into `Drift`'s input, and the report carried no
+  subject identifier for `EntropySnapshot` to use at all, so the
+  formula existed but was unreachable from an actual scan. Closed for
+  real by adding `PipelineReport.entropyByDimension()`/
+  `.toEntropySnapshot(subjectId)` and `aerf-report`'s `DriftJson`,
+  proven end-to-end by `DriftEndToEndTest` (a genuine `Pipeline.run`
+  output, diffed against a baseline, serialized to JSON). Deliberately
+  still stops short of any storage/API layer of its own — loading a
+  *stored* baseline stays outside this pipeline's reach, same as
+  before — see `Drift`'s own javadoc and
+  `docs/aerf-v0.4-reconciliation-evidence.md`'s Correction record for
+  the full account of what the first pass missed.
 - ~~How should per-node `Unknown` and graph-wide analysis confidence
   (§5.4) interact?~~ → Amendment 7, `aerf-v0.4.1-patch.md`: they don't -
   `AnalysisConfidence` tracks whether the *graph* resolved an edge's
