@@ -48,7 +48,10 @@ class PipelineTest {
         }
     }
 
-    private static PipelineConfig config() {
+    // Package-private (not private) so DriftEndToEndTest can reuse the
+    // exact same governance config rather than duplicating ~30 lines of
+    // it - both tests need identical input for "the same subject."
+    static PipelineConfig config() {
         LayerPolicy layerPolicy = LayerPolicy.of(
                 Set.of(Role.PRESENTATION, Role.APPLICATION, Role.PERSISTENCE),
                 java.util.Map.of(
@@ -191,5 +194,32 @@ class PipelineTest {
         PipelineReport report = Pipeline.run(config());
 
         assertTrue(report.extractionDiagnostics().isEmpty());
+    }
+
+    @Test
+    void entropyByDimensionMatchesEachResultsOwnValueUnderPipelinesOwnDimensionNames() {
+        // V04-CAL-02 (AERF v0.4 contract reconciliation): this is the
+        // method that makes a real PipelineReport usable as either side
+        // of a Drift.compute call at all - see DriftEndToEndTest for the
+        // full baseline -> current -> drift -> report chain this enables.
+        PipelineReport report = Pipeline.run(config());
+
+        java.util.Map<String, OptionalDouble> byDimension = report.entropyByDimension();
+
+        assertEquals(Set.of("layer", "cycle", "persistence", "security"), byDimension.keySet());
+        assertEquals(report.layerEntropy().value(), byDimension.get("layer"));
+        assertEquals(report.cycleEntropy().value(), byDimension.get("cycle"));
+        assertEquals(report.persistenceEntropy().value(), byDimension.get("persistence"));
+        assertEquals(report.securityEntropy().value(), byDimension.get("security"));
+    }
+
+    @Test
+    void toEntropySnapshotCarriesTheGivenSubjectIdAndTheSameValuesAsEntropyByDimension() {
+        PipelineReport report = Pipeline.run(config());
+
+        var snapshot = report.toEntropySnapshot("spring-petclinic");
+
+        assertEquals("spring-petclinic", snapshot.subjectId());
+        assertEquals(report.entropyByDimension(), snapshot.dimensionValues());
     }
 }

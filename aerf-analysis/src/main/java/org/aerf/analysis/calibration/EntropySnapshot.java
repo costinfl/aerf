@@ -1,5 +1,7 @@
 package org.aerf.analysis.calibration;
 
+import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.OptionalDouble;
@@ -32,6 +34,13 @@ public record EntropySnapshot(String subjectId, Map<String, OptionalDouble> dime
         if (subjectId.isBlank()) {
             throw new IllegalArgumentException("subjectId must not be blank");
         }
-        dimensionValues = Map.copyOf(Objects.requireNonNull(dimensionValues, "dimensionValues"));
+        Objects.requireNonNull(dimensionValues, "dimensionValues");
+        // Map.copyOf does not guarantee it preserves a source map's
+        // iteration order (see aerf-v0.4.1-patch.md's non-normative note
+        // on Increment 1's own GraphTest regression) - wrap explicitly
+        // instead, since this order ultimately reaches DriftJson's
+        // serialized output and section 14 requires identical sources to
+        // produce identical output across runs, not just within one.
+        dimensionValues = Collections.unmodifiableMap(new LinkedHashMap<>(dimensionValues));
     }
 }
