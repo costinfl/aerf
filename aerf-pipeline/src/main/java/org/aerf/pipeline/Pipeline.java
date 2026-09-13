@@ -72,12 +72,29 @@ public final class Pipeline {
         IterativeRoleInferenceResult roleResult = roleEngine.infer(extractedGraph);
         Graph graph = applyRoles(extractedGraph, roleResult);
 
-        LayerEntropyResult layerEntropy = LayerEntropyCalculator.withCallAndDependsRelations(config.layerPolicy())
-                .compute(graph);
-        CycleEntropyResult cycleEntropy = CycleEntropyCalculator.withCallAndDependsRelations(
-                config.includeSelfCyclesInCycleEntropy()).compute(graph);
-        PersistenceEntropyResult persistenceEntropy = PersistenceEntropyCalculator.withCallRelation().compute(graph);
-        SecurityEntropyResult securityEntropy = new SecurityEntropyCalculator(config.securityRules()).compute(graph);
+        // The calculators are held in locals rather than used inline
+        // because each is now asked two questions, not one: its entropy
+        // value and, since OQ-13, how much of its own relevant evidence
+        // resolved. Only the calculator knows its own scope - that is why
+        // per-dimension confidence lives here rather than being re-derived
+        // by a caller that would have to guess at it.
+        LayerEntropyCalculator layerCalculator =
+                LayerEntropyCalculator.withCallAndDependsRelations(config.layerPolicy());
+        CycleEntropyCalculator cycleCalculator =
+                CycleEntropyCalculator.withCallAndDependsRelations(config.includeSelfCyclesInCycleEntropy());
+        PersistenceEntropyCalculator persistenceCalculator = PersistenceEntropyCalculator.withCallRelation();
+        SecurityEntropyCalculator securityCalculator = new SecurityEntropyCalculator(config.securityRules());
+
+        LayerEntropyResult layerEntropy = layerCalculator.compute(graph);
+        CycleEntropyResult cycleEntropy = cycleCalculator.compute(graph);
+        PersistenceEntropyResult persistenceEntropy = persistenceCalculator.compute(graph);
+        SecurityEntropyResult securityEntropy = securityCalculator.compute(graph);
+
+        Map<String, OptionalDouble> confidenceByDimension = new java.util.LinkedHashMap<>();
+        confidenceByDimension.put("layer", layerCalculator.confidence(graph));
+        confidenceByDimension.put("cycle", cycleCalculator.confidence(graph));
+        confidenceByDimension.put("persistence", persistenceCalculator.confidence(graph));
+        confidenceByDimension.put("security", securityCalculator.confidence(graph));
 
         Map<String, OptionalDouble> dimensionValues = Map.of(
                 "layer", layerEntropy.value(),
@@ -115,7 +132,7 @@ public final class Pipeline {
         }
 
         return new PipelineReport(graph, roleResult.passes(), layerEntropy, cycleEntropy, persistenceEntropy,
-                securityEntropy, totalEntropy, maturity, maturityLevel, confidence,
+                securityEntropy, totalEntropy, maturity, maturityLevel, confidence, confidenceByDimension,
                 List.copyOf(invariantResults), List.copyOf(skippedInvariants), extraction.diagnostics());
     }
 

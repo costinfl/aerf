@@ -44,6 +44,7 @@ public record PipelineReport(
         OptionalDouble maturity,
         Optional<MaturityLevel> maturityLevel,
         OptionalDouble confidence,
+        Map<String, OptionalDouble> confidenceByDimension,
         List<InvariantEvaluationResult> invariantResults,
         List<String> skippedInvariants,
         List<String> extractionDiagnostics) {
@@ -58,6 +59,12 @@ public record PipelineReport(
         Objects.requireNonNull(maturity, "maturity");
         Objects.requireNonNull(maturityLevel, "maturityLevel");
         Objects.requireNonNull(confidence, "confidence");
+        // Same order-preserving copy as entropyByDimension's, and for the
+        // same reason: this map reaches serialized output, where Map.copyOf's
+        // unspecified iteration order would make identical input produce
+        // differently-ordered JSON across runs (section 14).
+        confidenceByDimension = Collections.unmodifiableMap(
+                new LinkedHashMap<>(Objects.requireNonNull(confidenceByDimension, "confidenceByDimension")));
         invariantResults = List.copyOf(Objects.requireNonNull(invariantResults, "invariantResults"));
         skippedInvariants = List.copyOf(Objects.requireNonNull(skippedInvariants, "skippedInvariants"));
         extractionDiagnostics = List.copyOf(Objects.requireNonNull(extractionDiagnostics, "extractionDiagnostics"));

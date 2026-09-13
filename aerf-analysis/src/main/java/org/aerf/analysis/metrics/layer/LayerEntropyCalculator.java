@@ -1,5 +1,6 @@
 package org.aerf.analysis.metrics.layer;
 
+import org.aerf.analysis.calibration.DimensionConfidence;
 import org.aerf.model.Edge;
 import org.aerf.model.Graph;
 import org.aerf.model.Node;
@@ -12,6 +13,7 @@ import java.util.EnumSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.OptionalDouble;
 import java.util.Set;
 
 /**
@@ -46,6 +48,16 @@ public final class LayerEntropyCalculator {
      */
     public static LayerEntropyCalculator withCallAndDependsRelations(LayerPolicy policy) {
         return new LayerEntropyCalculator(policy, EnumSet.of(RelationType.CALL, RelationType.DEPENDS));
+    }
+
+    /**
+     * How much of this dimension's own evidence was resolved (OQ-13) —
+     * measured over the same relation set {@link #compute} uses, but
+     * without the role/policy filter, per
+     * {@link DimensionConfidence}'s own documentation of why.
+     */
+    public OptionalDouble confidence(Graph graph) {
+        return DimensionConfidence.forRelations(graph, relevantRelations);
     }
 
     public LayerEntropyResult compute(Graph graph) {

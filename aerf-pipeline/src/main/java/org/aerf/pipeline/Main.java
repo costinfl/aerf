@@ -125,6 +125,7 @@ public final class Main {
                 .put("maturity", CalibrationJson.maturity(report.maturity()))
                 .put("maturityLevel", report.maturityLevel().map(CalibrationJson::maturityLevel).orElse(JsonValue.JsonNull.INSTANCE))
                 .put("confidence", CalibrationJson.confidence(report.confidence()))
+                .put("confidenceByDimension", CalibrationJson.confidenceByDimension(report.confidenceByDimension()))
                 .put("invariants", invariants.build())
                 .put("skippedInvariants", new JsonValue.JsonArray(
                         report.skippedInvariants().stream().map(d -> (JsonValue) new JsonValue.JsonString(d)).toList()))

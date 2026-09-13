@@ -1,5 +1,6 @@
 package org.aerf.analysis.metrics.cycle;
 
+import org.aerf.analysis.calibration.DimensionConfidence;
 import org.aerf.model.Edge;
 import org.aerf.model.Graph;
 import org.aerf.model.NodeId;
@@ -11,6 +12,7 @@ import java.util.EnumSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Objects;
+import java.util.OptionalDouble;
 import java.util.Set;
 
 /**
@@ -49,6 +51,17 @@ public final class CycleEntropyCalculator {
      */
     public static CycleEntropyCalculator withCallAndDependsRelations(boolean includeSelfCycles) {
         return new CycleEntropyCalculator(EnumSet.of(RelationType.CALL, RelationType.DEPENDS), includeSelfCycles);
+    }
+
+    /**
+     * How much of this dimension's own evidence was resolved (OQ-13),
+     * measured over the same relation set {@link #compute} traverses.
+     * Note this is edge-scoped even though cycle entropy's own ratio is
+     * node-scoped: what can fail to resolve is a reference, and only
+     * edges carry references.
+     */
+    public OptionalDouble confidence(Graph graph) {
+        return DimensionConfidence.forRelations(graph, relevantRelations);
     }
 
     public CycleEntropyResult compute(Graph graph) {

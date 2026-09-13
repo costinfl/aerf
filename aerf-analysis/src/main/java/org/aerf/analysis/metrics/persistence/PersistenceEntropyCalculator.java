@@ -1,5 +1,6 @@
 package org.aerf.analysis.metrics.persistence;
 
+import org.aerf.analysis.calibration.DimensionConfidence;
 import org.aerf.model.Edge;
 import org.aerf.model.ExecutionContext;
 import org.aerf.model.Graph;
@@ -12,6 +13,7 @@ import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Objects;
+import java.util.OptionalDouble;
 import java.util.Set;
 
 /**
@@ -54,6 +56,18 @@ public final class PersistenceEntropyCalculator {
      */
     public static PersistenceEntropyCalculator withCallRelation() {
         return new PersistenceEntropyCalculator(EnumSet.of(RelationType.CALL));
+    }
+
+    /**
+     * How much of this dimension's own evidence was resolved (OQ-13),
+     * measured over the same relation set {@link #compute} uses but
+     * <em>without</em> the target-role filter — folding that filter in
+     * would make this trivially 1.0, since an edge cannot be selected by
+     * its target's role unless its target resolved. See
+     * {@link DimensionConfidence}.
+     */
+    public OptionalDouble confidence(Graph graph) {
+        return DimensionConfidence.forRelations(graph, relevantRelations);
     }
 
     public PersistenceEntropyResult compute(Graph graph) {

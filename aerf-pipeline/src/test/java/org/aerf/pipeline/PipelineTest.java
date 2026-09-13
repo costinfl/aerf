@@ -197,6 +197,28 @@ class PipelineTest {
     }
 
     @Test
+    void reportsPerDimensionConfidenceAlongsideTheGraphWideFigure() {
+        // OQ-13, at the architectural boundary: a real Pipeline.run must
+        // carry per-dimension confidence, not just compute it somewhere.
+        // Exact fractions, per the backlog's measurement-change rule.
+        PipelineReport report = Pipeline.run(config());
+
+        assertEquals(Set.of("layer", "cycle", "persistence", "security"), report.confidenceByDimension().keySet());
+        assertEquals(OptionalDouble.of(5.0 / 7.0), report.confidence(),
+                "the graph-wide figure must not move: it is a different question, unchanged by OQ-13");
+        assertEquals(OptionalDouble.of(3.0 / 5.0), report.confidenceByDimension().get("layer"));
+        assertEquals(OptionalDouble.of(3.0 / 5.0), report.confidenceByDimension().get("cycle"),
+                "layer and cycle share the CALL+DEPENDS scope, so they read identically here");
+        assertEquals(OptionalDouble.of(2.0 / 3.0), report.confidenceByDimension().get("persistence"),
+                "persistence scopes to CALL alone: 3 calls, of which orders.add -> java.util.List#add "
+                        + "is unresolved. The 2 DEPENDS edges (one of them the unresolved java.lang.Long "
+                        + "field type) are outside this dimension entirely, which is why it reads higher "
+                        + "than layer and cycle rather than lower");
+        assertTrue(report.confidenceByDimension().get("security").isEmpty(),
+                "undefined by construction, and reported rather than omitted");
+    }
+
+    @Test
     void entropyByDimensionMatchesEachResultsOwnValueUnderPipelinesOwnDimensionNames() {
         // V04-CAL-02 (AERF v0.4 contract reconciliation): this is the
         // method that makes a real PipelineReport usable as either side
