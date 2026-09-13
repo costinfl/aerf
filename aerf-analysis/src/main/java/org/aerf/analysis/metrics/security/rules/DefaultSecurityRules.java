@@ -1,5 +1,6 @@
 package org.aerf.analysis.metrics.security.rules;
 
+import org.aerf.analysis.metrics.security.SecurityConcern;
 import org.aerf.analysis.metrics.security.SecurityOpportunityRule;
 import org.aerf.model.Evidence;
 import org.aerf.model.Node;
@@ -62,10 +63,10 @@ public final class DefaultSecurityRules {
                 String encoding = evidence.attributes().get(OUTPUT_ENCODING_ATTRIBUTE);
                 String description = evidence.description();
                 if ("unescaped".equals(encoding) || description.contains(UNESCAPED_MARKER)) {
-                    return Optional.of(new Finding("xss", true, "unescaped output observed: " + description));
+                    return Optional.of(new Finding(SecurityConcern.XSS, true, "unescaped output observed: " + description));
                 }
                 if ("escaped".equals(encoding) || description.contains(ESCAPED_MARKER)) {
-                    return Optional.of(new Finding("xss", false, "output encoding observed: " + description));
+                    return Optional.of(new Finding(SecurityConcern.XSS, false, "output encoding observed: " + description));
                 }
             }
             return Optional.empty();

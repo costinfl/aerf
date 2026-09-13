@@ -34,7 +34,7 @@ this phase is **0.2.0-SNAPSHOT**.
 | OQ | Question | Status | Decision | Increment |
 |---|---|---|---|---|
 | OQ-08 | Should the N+1 heuristic constrain the source side? | **DECIDED / NO CODE CHANGE** | **No.** The only true positive on real code (legacy petclinic's intra-repository N+1) has a `PERSISTENCE` source, so every candidate restriction discards it; an allowlist would also drop `UNKNOWN`-sourced contexts, shrinking the denominator precisely when role inference is incomplete. The iteration signal already sits on edge provenance, which is more precise than any source-node proxy. Behaviour pinned by 6 new tests. | 22 |
-| OQ-11 | Should the security concern become a closed vocabulary? | OPEN | — | 23 |
+| OQ-11 | Should the security concern become a closed vocabulary? | **PARTIALLY DECIDED** | **Identifiers: yes; enum: no; DSL: not yet.** `SecurityConcern.XSS` plus `requireCanonical` (lowercase hyphenated form, enforced at both construction points) gives stable machine-referenceable identifiers while leaving the set open, since §4.4 names concerns as examples rather than a closed set. **Still open:** the DSL half. `PropertyKey` has no security-related constant and `InvariantEvaluator` never sees a `SecurityEntropyResult`, so an invariant still cannot reference a concern — which was OQ-11's original motivation. Reaching it means designing finding-scope evaluation, a security-model question this item's acceptance criteria forbid answering. Guarded by `theInvariantDslStillCannotReferenceAConcern`, which fails if such a key is ever added. | 23 |
 | OQ-13 | Should confidence also exist per entropy dimension? | OPEN | — | 24 |
 
 ## Tier 2 — governance configuration foundation

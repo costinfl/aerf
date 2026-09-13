@@ -15,8 +15,12 @@ import java.util.Optional;
  * governance-relevant weaknesses such as...") rather than a closed set —
  * unlike {@link org.aerf.model.Role} or {@link org.aerf.model.RelationType},
  * which v0.4 defines with closed-set notation. So a rule names its own
- * concern as a free-text label, not a value from some fixed enum this
- * implementation would otherwise be asserting as canonical.
+ * concern as a label rather than a value from some fixed enum this
+ * implementation would otherwise be asserting as canonical. Since
+ * increment 23 that label must be in {@link SecurityConcern}'s canonical
+ * form — stable enough for a consumer to match on reliably, still open
+ * enough for an organization to name a concern this project never
+ * anticipated.
  *
  * <p>Section 4.4: "The metric represents detected control weaknesses,
  * not mere technology presence." A rule must therefore never treat mere
@@ -32,11 +36,8 @@ public interface SecurityOpportunityRule {
 
     record Finding(String concern, boolean weaknessDetected, String rationale) {
         public Finding {
-            Objects.requireNonNull(concern, "concern");
+            concern = SecurityConcern.requireCanonical(concern);
             Objects.requireNonNull(rationale, "rationale");
-            if (concern.isBlank()) {
-                throw new IllegalArgumentException("concern must not be blank");
-            }
             if (rationale.isBlank()) {
                 throw new IllegalArgumentException("rationale must not be blank");
             }
