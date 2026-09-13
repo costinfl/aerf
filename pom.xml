@@ -6,7 +6,7 @@
 
   <groupId>org.aerf</groupId>
   <artifactId>aerf-parent</artifactId>
-  <version>0.1.0-SNAPSHOT</version>
+  <version>0.2.0-SNAPSHOT</version>
   <packaging>pom</packaging>
 
   <name>AERF - Architectural Entropy Reduction Framework (parent)</name>
