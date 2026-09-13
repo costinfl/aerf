@@ -33,7 +33,7 @@ this phase is **0.2.0-SNAPSHOT**.
 
 | OQ | Question | Status | Decision | Increment |
 |---|---|---|---|---|
-| OQ-08 | Should the N+1 heuristic constrain the source side? | OPEN | — | 22 |
+| OQ-08 | Should the N+1 heuristic constrain the source side? | **DECIDED / NO CODE CHANGE** | **No.** The only true positive on real code (legacy petclinic's intra-repository N+1) has a `PERSISTENCE` source, so every candidate restriction discards it; an allowlist would also drop `UNKNOWN`-sourced contexts, shrinking the denominator precisely when role inference is incomplete. The iteration signal already sits on edge provenance, which is more precise than any source-node proxy. Behaviour pinned by 6 new tests. | 22 |
 | OQ-11 | Should the security concern become a closed vocabulary? | OPEN | — | 23 |
 | OQ-13 | Should confidence also exist per entropy dimension? | OPEN | — | 24 |
 
@@ -60,7 +60,7 @@ this phase is **0.2.0-SNAPSHOT**.
 |---|---|---|---|---|
 | OQ-10 | CSRF and mass-assignment modelling | OPEN — first step is an evidence-availability assessment, not implementation | — | — |
 | OQ-05 | Non-monotonic (revising) role refinement | GATED — begins only if a real scan produces a demonstrably wrong role that revision would correct | — | — |
-| OQ-01 | When does seed-only role classification actually fail? | OPEN (continuous) — served by each real-repository scan | — | — |
+| OQ-01 | When does seed-only role classification actually fail? | OPEN (continuous) — served by each real-repository scan | Evidence added in increment 22: re-scanning modern spring-petclinic on current code moved it from 0 to 8 `PERSISTENCE` nodes, and from *unmeasurable* to measured on persistence, layer, total entropy and maturity. Increment 20's adapter fix is confirmed on real code. Still no case found where seed **plus current refinement** produces a wrong role. | 22 |
 
 ## Known blockers found before work started
 

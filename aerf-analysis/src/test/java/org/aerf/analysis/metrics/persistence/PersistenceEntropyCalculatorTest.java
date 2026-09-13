@@ -232,4 +232,177 @@ class PersistenceEntropyCalculatorTest {
 
         assertEquals(calculator.compute(graph), calculator.compute(graph));
     }
+
+    // ------------------------------------------------------------------
+    // OQ-08 (post-v0.4.1 backlog): the source side of a persistence
+    // context is deliberately NOT constrained. Until increment 22 that
+    // was true only by omission - every test above uses an APPLICATION or
+    // PRESENTATION source, so the behaviour on the shapes real codebases
+    // actually produce was accidental. The tests below pin it against
+    // both real shapes AERF has now observed. See
+    // docs/increment-22-persistence-source-scope-decision.md.
+    // ------------------------------------------------------------------
+
+    private static Evidence iterated(String description) {
+        return Evidence.of("java", description, ExtractionFidelity.L2_SYMBOL_RESOLVED, ExecutionContext.ITERATED);
+    }
+
+    private static Evidence single(String description) {
+        return Evidence.of("java", description, ExtractionFidelity.L2_SYMBOL_RESOLVED, ExecutionContext.SINGLE);
+    }
+
+    @Test
+    void persistenceToPersistenceIteratedCallIsFlagged() {
+        // The legacy spring-framework-petclinic shape, and the only true
+        // positive AERF has ever produced on real code:
+        // JdbcOwnerRepositoryImpl#loadOwnersPetsAndVisits calls
+        // #loadPetsAndVisits inside a loop. Both endpoints are
+        // PERSISTENCE/FUNCTION - an intra-repository N+1, the textbook
+        // form. Any source-role restriction would discard exactly this.
+        Graph graph = Graph.builder()
+                .addNode(node("repo#loadOwnersPetsAndVisits", NodeType.FUNCTION, Role.PERSISTENCE))
+                .addNode(node("repo#loadPetsAndVisits", NodeType.FUNCTION, Role.PERSISTENCE))
+                .addEdge(NodeRef.resolved(NodeId.of("repo#loadOwnersPetsAndVisits")),
+                        NodeRef.resolved(NodeId.of("repo#loadPetsAndVisits")), RelationType.CALL,
+                        List.of(iterated("call inside for-each over owners")))
+                .build();
+
+        PersistenceEntropyResult result = calculator.compute(graph);
+
+        assertEquals(1, result.relevantEdges().size());
+        assertEquals(1, result.flaggedEdges().size());
+        assertEquals(OptionalDouble.of(1.0), result.value());
+    }
+
+    @Test
+    void persistenceToPersistenceNonIteratedCallStillCountsInTheDenominator() {
+        Graph graph = Graph.builder()
+                .addNode(node("repo#findById", NodeType.FUNCTION, Role.PERSISTENCE))
+                .addNode(node("repo#loadPetsAndVisits", NodeType.FUNCTION, Role.PERSISTENCE))
+                .addEdge(NodeRef.resolved(NodeId.of("repo#findById")),
+                        NodeRef.resolved(NodeId.of("repo#loadPetsAndVisits")), RelationType.CALL,
+                        List.of(single("single call, no loop")))
+                .build();
+
+        PersistenceEntropyResult result = calculator.compute(graph);
+
+        assertEquals(1, result.relevantEdges().size(), "an intra-repository call is still a persistence context");
+        assertTrue(result.flaggedEdges().isEmpty());
+        assertEquals(OptionalDouble.of(0.0), result.value());
+    }
+
+    @Test
+    void sourceRoleDoesNotAffectRelevanceOrValue() {
+        // The anti-regression pin for OQ-08: the same iterated call to the
+        // same persistence target must measure identically no matter what
+        // role the caller carries. Real scans supply PRESENTATION (modern
+        // petclinic, 9 of 10 relevant edges), PERSISTENCE (legacy
+        // petclinic, 8 of 8) and UNKNOWN (modern petclinic, 1 of 10)
+        // sources, so all three are load-bearing, not hypothetical.
+        for (Role sourceRole : Role.values()) {
+            Graph graph = Graph.builder()
+                    .addNode(node("caller", NodeType.FUNCTION, sourceRole))
+                    .addNode(node("repo#findById", NodeType.FUNCTION, Role.PERSISTENCE))
+                    .addEdge(NodeRef.resolved(NodeId.of("caller")),
+                            NodeRef.resolved(NodeId.of("repo#findById")), RelationType.CALL,
+                            List.of(iterated("call inside loop")))
+                    .build();
+
+            PersistenceEntropyResult result = calculator.compute(graph);
+
+            assertEquals(1, result.relevantEdges().size(), "source role " + sourceRole + " changed relevance");
+            assertEquals(OptionalDouble.of(1.0), result.value(), "source role " + sourceRole + " changed the value");
+        }
+    }
+
+    @Test
+    void sourceNodeTypeDoesNotAffectRelevance() {
+        // The other half of "the source side is not consulted": OQ-08 also
+        // asked whether the source must be "something that plausibly
+        // iterates". Node type is the only structural property that could
+        // stand in for that, and it is deliberately not consulted either -
+        // the ITERATED signal lives on the edge's own provenance, which is
+        // strictly more precise than any property of the calling node.
+        for (NodeType sourceType : List.of(NodeType.FUNCTION, NodeType.COMPONENT, NodeType.SCRIPT)) {
+            Graph graph = Graph.builder()
+                    .addNode(node("caller", sourceType, Role.APPLICATION))
+                    .addNode(node("repo#findById", NodeType.FUNCTION, Role.PERSISTENCE))
+                    .addEdge(NodeRef.resolved(NodeId.of("caller")),
+                            NodeRef.resolved(NodeId.of("repo#findById")), RelationType.CALL,
+                            List.of(iterated("call inside loop")))
+                    .build();
+
+            assertEquals(1, calculator.compute(graph).relevantEdges().size(),
+                    "source type " + sourceType + " changed relevance");
+        }
+    }
+
+    @Test
+    void presentationSourcedRepositoryCallsAreRelevantButUnflaggedWithoutIteration() {
+        // The modern spring-petclinic shape, re-scanned on current code in
+        // increment 22: 10 controller-to-repository calls, none iterated,
+        // giving a defined 0.0 rather than an undefined value. This is the
+        // cross-layer counterpart to the intra-repository case above, and
+        // it is what a source-role allowlist would have kept while
+        // discarding the one genuine finding.
+        Graph.Builder builder = Graph.builder()
+                .addNode(node("OwnerController#showOwner", NodeType.FUNCTION, Role.PRESENTATION))
+                .addNode(node("PetController#populatePetTypes", NodeType.FUNCTION, Role.PRESENTATION))
+                .addNode(node("OwnerRepository#findById", NodeType.FUNCTION, Role.PERSISTENCE))
+                .addNode(node("PetTypeRepository#findPetTypes", NodeType.FUNCTION, Role.PERSISTENCE));
+        builder.addEdge(NodeRef.resolved(NodeId.of("OwnerController#showOwner")),
+                NodeRef.resolved(NodeId.of("OwnerRepository#findById")), RelationType.CALL,
+                List.of(single("single call from a request handler")));
+        builder.addEdge(NodeRef.resolved(NodeId.of("PetController#populatePetTypes")),
+                NodeRef.resolved(NodeId.of("PetTypeRepository#findPetTypes")), RelationType.CALL,
+                List.of(single("single call from a model-attribute method")));
+
+        PersistenceEntropyResult result = calculator.compute(builder.build());
+
+        assertEquals(2, result.relevantEdges().size());
+        assertTrue(result.flaggedEdges().isEmpty());
+        assertEquals(OptionalDouble.of(0.0), result.value(),
+                "defined zero, not undefined: the contexts exist and none of them iterates");
+    }
+
+    @Test
+    void legacyPetclinicShapedFixtureYieldsOneOverEight() {
+        // An exact-value mirror of the committed legacy scan
+        // (scripts/push-scan/sample-reports/spring-framework-petclinic.json):
+        // 8 relevant persistence contexts, all PERSISTENCE-to-PERSISTENCE,
+        // exactly one of them iterated -> 0.125. If a future change to the
+        // heuristic's scope moves this number, it moves AERF's only real
+        // N+1 measurement with it.
+        Graph.Builder builder = Graph.builder()
+                .addNode(node("repo#findById", NodeType.FUNCTION, Role.PERSISTENCE))
+                .addNode(node("repo#findByLastName", NodeType.FUNCTION, Role.PERSISTENCE))
+                .addNode(node("repo#loadOwnersPetsAndVisits", NodeType.FUNCTION, Role.PERSISTENCE))
+                .addNode(node("repo#loadPetsAndVisits", NodeType.FUNCTION, Role.PERSISTENCE))
+                .addNode(node("repo#getPetTypes", NodeType.FUNCTION, Role.PERSISTENCE))
+                .addNode(node("petRepo#save", NodeType.FUNCTION, Role.PERSISTENCE))
+                .addNode(node("petRepo#createPetParameterSource", NodeType.FUNCTION, Role.PERSISTENCE))
+                .addNode(node("visitRepo#save", NodeType.FUNCTION, Role.PERSISTENCE))
+                .addNode(node("visitRepo#createVisitParameterSource", NodeType.FUNCTION, Role.PERSISTENCE));
+        call(builder, "repo#findById", "repo#loadPetsAndVisits", single("1"));
+        call(builder, "repo#findByLastName", "repo#loadOwnersPetsAndVisits", single("2"));
+        call(builder, "repo#loadOwnersPetsAndVisits", "repo#loadPetsAndVisits", iterated("3 - the N+1"));
+        call(builder, "repo#loadOwnersPetsAndVisits", "repo#loadPetsAndVisits", single("4 - duplicate edge"));
+        call(builder, "repo#loadPetsAndVisits", "repo#getPetTypes", single("5"));
+        call(builder, "petRepo#save", "petRepo#createPetParameterSource", single("6"));
+        call(builder, "petRepo#save", "petRepo#createPetParameterSource", single("7 - duplicate edge"));
+        call(builder, "visitRepo#save", "visitRepo#createVisitParameterSource", single("8"));
+
+        PersistenceEntropyResult result = calculator.compute(builder.build());
+
+        assertEquals(8, result.relevantEdges().size());
+        assertEquals(1, result.flaggedEdges().size());
+        assertEquals(OptionalDouble.of(0.125), result.value());
+        assertEquals(OptionalDouble.of(0.125), result.weightedValue(),
+                "one flagged edge backed by exactly one ITERATED item weighs the same as the plain ratio");
+    }
+
+    private static void call(Graph.Builder builder, String from, String to, Evidence evidence) {
+        builder.addEdge(NodeRef.resolved(NodeId.of(from)), NodeRef.resolved(NodeId.of(to)),
+                RelationType.CALL, List.of(evidence));
+    }
 }
