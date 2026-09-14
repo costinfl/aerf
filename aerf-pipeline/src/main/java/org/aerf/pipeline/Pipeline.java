@@ -77,7 +77,8 @@ public final class Pipeline {
         // per-dimension confidence lives here rather than being re-derived
         // by a caller that would have to guess at it.
         LayerEntropyCalculator layerCalculator =
-                LayerEntropyCalculator.withCallAndDependsRelations(config.governance().layerPolicy());
+                LayerEntropyCalculator.withCallAndDependsRelations(
+                        config.governance().layerPolicy(), config.governance().subsystemLayerPolicies());
         CycleEntropyCalculator cycleCalculator =
                 CycleEntropyCalculator.withCallAndDependsRelations(
                         config.governance().includeSelfCyclesInCycleEntropy());

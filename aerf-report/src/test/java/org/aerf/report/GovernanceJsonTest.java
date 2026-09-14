@@ -4,6 +4,8 @@ import org.aerf.analysis.calibration.CalibrationProfile;
 import org.aerf.analysis.calibration.LinearCalibration;
 import org.aerf.analysis.calibration.WeightedDimension;
 import org.aerf.analysis.governance.GovernancePolicy;
+import org.aerf.analysis.governance.SubsystemLayerPolicies;
+import org.aerf.analysis.governance.SubsystemLayerPolicy;
 import org.aerf.analysis.invariant.Invariant;
 import org.aerf.analysis.invariant.Predicate;
 import org.aerf.analysis.invariant.Scope;
@@ -61,10 +63,10 @@ class GovernanceJsonTest {
     @Test
     void theSelfCyclePolicySerializesAsAnExplicitBooleanRatherThanBeingOmittedWhenFalse() {
         assertTrue(JsonWriter.write(GovernanceJson.policy(
-                        new GovernancePolicy(policy(), false, profile(), List.of())))
+                        GovernancePolicy.withOneLayerMatrix(policy(), false, profile(), List.of())))
                 .contains("\"includeSelfCyclesInCycleEntropy\":false"));
         assertTrue(JsonWriter.write(GovernanceJson.policy(
-                        new GovernancePolicy(policy(), true, profile(), List.of())))
+                        GovernancePolicy.withOneLayerMatrix(policy(), true, profile(), List.of())))
                 .contains("\"includeSelfCyclesInCycleEntropy\":true"));
     }
 
@@ -77,7 +79,7 @@ class GovernanceJsonTest {
                 new WeightedDimension("security", 0.0, new LinearCalibration())));
 
         String json = JsonWriter.write(GovernanceJson.policy(
-                new GovernancePolicy(policy(), false, withSecurityAtZero, List.of())));
+                GovernancePolicy.withOneLayerMatrix(policy(), false, withSecurityAtZero, List.of())));
 
         assertTrue(json.contains(
                 "\"calibration\":[{\"dimension\":\"layer\",\"weight\":1.0,\"function\":\"linear\"},"
@@ -86,7 +88,7 @@ class GovernanceJsonTest {
 
     @Test
     void invariantsSerializeTheirNameScopeSeverityAndReferencedMetricsOnly() {
-        String json = JsonWriter.write(GovernanceJson.policy(new GovernancePolicy(
+        String json = JsonWriter.write(GovernanceJson.policy(GovernancePolicy.withOneLayerMatrix(
                 policy(), false, profile(),
                 List.of(SpecWorkedExamples.noPresentationToPersistence(),
                         SpecWorkedExamples.entropyBudget(0.35)))));
@@ -111,7 +113,7 @@ class GovernanceJsonTest {
                 "a_named_rule", Scope.GRAPH, new Predicate.Always(true), new Predicate.Always(true), "critical");
 
         String json = JsonWriter.write(GovernanceJson.policy(
-                new GovernancePolicy(policy(), false, profile(), List.of(invariant))));
+                GovernancePolicy.withOneLayerMatrix(policy(), false, profile(), List.of(invariant))));
 
         assertTrue(json.contains("\"name\":\"a_named_rule\""), json);
         assertFalse(json.toLowerCase(java.util.Locale.ROOT).contains("always"), json);
@@ -142,7 +144,7 @@ class GovernanceJsonTest {
     }
 
     private static GovernancePolicy governance(LayerPolicy layerPolicy) {
-        return new GovernancePolicy(layerPolicy, false, profile(), List.of());
+        return GovernancePolicy.withOneLayerMatrix(layerPolicy, false, profile(), List.of());
     }
 
     private static LayerPolicy policy() {
@@ -151,5 +153,53 @@ class GovernanceJsonTest {
 
     private static CalibrationProfile profile() {
         return CalibrationProfile.of(List.of(new WeightedDimension("layer", 1.0, new LinearCalibration())));
+    }
+
+    @Test
+    void declaringNoSubsystemsEmitsAnEmptyArrayRatherThanOmittingTheKey() {
+        // Choosing one matrix for the whole graph is a governance decision,
+        // not the absence of one - the same reason a zero-weighted
+        // dimension is serialized rather than dropped.
+        assertTrue(JsonWriter.write(GovernanceJson.policy(governance(policy())))
+                .contains("\"subsystemLayerPolicies\":[]"));
+    }
+
+    @Test
+    void subsystemsSerializeInDeclarationOrderWithTheirOwnFullMatrices() {
+        LayerPolicy legacy = LayerPolicy.of(
+                Set.of(Role.PRESENTATION, Role.PERSISTENCE),
+                Map.of(Role.PRESENTATION, Set.of(Role.PERSISTENCE)));
+
+        String json = JsonWriter.write(GovernanceJson.policy(new GovernancePolicy(
+                policy(),
+                SubsystemLayerPolicies.of(List.of(
+                        new SubsystemLayerPolicy("shipping", "com.example.shipping", legacy),
+                        new SubsystemLayerPolicy("billing", "com.example.billing", policy()))),
+                false, profile(), List.of())));
+
+        assertTrue(json.contains(
+                "\"subsystemLayerPolicies\":["
+                        + "{\"name\":\"shipping\",\"idPrefix\":\"com.example.shipping\","
+                        + "\"layerPolicy\":{\"knownRoles\":[\"PRESENTATION\",\"PERSISTENCE\"],"
+                        + "\"allowedTargets\":{\"PRESENTATION\":[\"PERSISTENCE\"]}}},"
+                        + "{\"name\":\"billing\",\"idPrefix\":\"com.example.billing\","
+                        + "\"layerPolicy\":{\"knownRoles\":[\"PRESENTATION\"],"
+                        + "\"allowedTargets\":{\"PRESENTATION\":[\"PRESENTATION\"]}}}]"), json);
+    }
+
+    @Test
+    void aSubsystemDeclarationIsFullyRecoverableFromTheReport() {
+        // The inspectability criterion applied to OQ-04: a reader can see
+        // which subsystems were declared, what each one claimed, and what
+        // each one permitted - so a per-subsystem measurement can be
+        // understood without the config that produced it.
+        String json = JsonWriter.write(GovernanceJson.policy(new GovernancePolicy(
+                policy(),
+                SubsystemLayerPolicies.of(List.of(
+                        new SubsystemLayerPolicy("billing", "com.example.billing", policy()))),
+                false, profile(), List.of())));
+
+        assertTrue(json.contains("\"name\":\"billing\""), json);
+        assertTrue(json.contains("\"idPrefix\":\"com.example.billing\""), json);
     }
 }

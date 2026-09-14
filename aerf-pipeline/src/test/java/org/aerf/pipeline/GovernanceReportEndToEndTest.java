@@ -1,12 +1,18 @@
 package org.aerf.pipeline;
 
 import org.aerf.analysis.calibration.EntropySnapshot;
+import org.aerf.analysis.governance.GovernancePolicy;
+import org.aerf.analysis.governance.SubsystemLayerPolicies;
+import org.aerf.analysis.governance.SubsystemLayerPolicy;
+import org.aerf.analysis.metrics.layer.LayerPolicy;
 import org.aerf.model.Role;
 import org.aerf.report.json.JsonWriter;
 import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.RecordComponent;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -81,5 +87,54 @@ class GovernanceReportEndToEndTest {
         assertEquals(List.of("subjectId", "dimensionValues"),
                 java.util.Arrays.stream(EntropySnapshot.class.getRecordComponents())
                         .map(RecordComponent::getName).toList());
+    }
+
+    @Test
+    void aDeclaredSubsystemReachesTheSerializedReportAndChangesWhichEdgesViolate() {
+        // OQ-04's reachability proof: per-subsystem matrices have to work
+        // through a real Pipeline.run and appear in the report, not merely
+        // be unit-testable in the calculator.
+        PipelineConfig base = PipelineTest.config();
+        GovernancePolicy governance = base.governance();
+
+        // The defect sample's own violation is a PRESENTATION node calling
+        // a PERSISTENCE one. Declaring a subsystem over it whose matrix
+        // permits exactly that must clear the violation without changing
+        // how many edges were measured.
+        LayerPolicy permissive = LayerPolicy.of(
+                governance.layerPolicy().knownRoles(),
+                Map.of(
+                        Role.PRESENTATION, Set.of(Role.PRESENTATION, Role.APPLICATION, Role.PERSISTENCE),
+                        Role.APPLICATION, Set.of(Role.APPLICATION, Role.PERSISTENCE),
+                        Role.PERSISTENCE, Set.of(Role.PERSISTENCE)));
+
+        PipelineReport strict = Pipeline.run(base);
+        PipelineReport relaxed = Pipeline.run(new PipelineConfig(
+                base.extraction(), base.detection(),
+                new GovernancePolicy(
+                        governance.layerPolicy(),
+                        SubsystemLayerPolicies.of(List.of(
+                                new SubsystemLayerPolicy("everything", "com", permissive))),
+                        governance.includeSelfCyclesInCycleEntropy(),
+                        governance.calibrationProfile(), governance.invariants())));
+
+        assertEquals(strict.layerEntropy().relevantEdges().size(),
+                relaxed.layerEntropy().relevantEdges().size(),
+                "a subsystem declaration changes which matrix judges an edge, never which edges are in scope");
+        assertTrue(strict.layerEntropy().violatingEdges().size() > relaxed.layerEntropy().violatingEdges().size(),
+                "the permissive subsystem matrix must actually clear violations");
+        assertEquals(strict.confidence(), relaxed.confidence(),
+                "Amendment 7: a policy outcome never moves confidence");
+
+        String json = JsonWriter.write(Main.toJson(relaxed));
+        assertTrue(json.contains("\"name\":\"everything\""), json);
+        assertTrue(json.contains("\"idPrefix\":\"com\""), json);
+    }
+
+    @Test
+    void declaringNoSubsystemsLeavesTheReportSayingSoExplicitly() {
+        String json = JsonWriter.write(Main.toJson(Pipeline.run(PipelineTest.config())));
+
+        assertTrue(json.contains("\"subsystemLayerPolicies\":[]"), json);
     }
 }

@@ -95,7 +95,7 @@ class PipelineTest {
                         DefaultSeedRules.illustrativeRules(),
                         DefaultGraphRefinementRules.illustrativeRules(),
                         DefaultSecurityRules.illustrativeRules()),
-                new GovernancePolicy(
+                GovernancePolicy.withOneLayerMatrix(
                         layerPolicy,
                         false,
                         calibrationProfile,

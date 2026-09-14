@@ -29,17 +29,20 @@ class GovernancePolicyTest {
         // "No hidden default governance policy is introduced" (OQ-02's
         // acceptance) enforced by the compiler and these checks rather
         // than by documentation: there is nowhere for a default to hide.
+        SubsystemLayerPolicies none = SubsystemLayerPolicies.none();
         assertThrows(NullPointerException.class,
-                () -> new GovernancePolicy(null, false, profile(), List.of()));
+                () -> new GovernancePolicy(null, none, false, profile(), List.of()));
         assertThrows(NullPointerException.class,
-                () -> new GovernancePolicy(policy(), false, null, List.of()));
+                () -> new GovernancePolicy(policy(), null, false, profile(), List.of()));
         assertThrows(NullPointerException.class,
-                () -> new GovernancePolicy(policy(), false, profile(), null));
+                () -> new GovernancePolicy(policy(), none, false, null, List.of()));
+        assertThrows(NullPointerException.class,
+                () -> new GovernancePolicy(policy(), none, false, profile(), null));
     }
 
     @Test
     void anOrganizationDeclaringNoInvariantsMustSaySoWithAnEmptyListRatherThanOmittingThem() {
-        GovernancePolicy governance = new GovernancePolicy(policy(), false, profile(), List.of());
+        GovernancePolicy governance = GovernancePolicy.withOneLayerMatrix(policy(), false, profile(), List.of());
 
         assertTrue(governance.invariants().isEmpty(),
                 "declaring no invariants is a legitimate governance position - but it has to be declared");
@@ -51,7 +54,7 @@ class GovernancePolicyTest {
         Invariant second = invariant("b_second");
 
         GovernancePolicy governance =
-                new GovernancePolicy(policy(), false, profile(), List.of(second, first));
+                GovernancePolicy.withOneLayerMatrix(policy(), false, profile(), List.of(second, first));
 
         assertEquals(List.of("b_second", "a_first"),
                 governance.invariants().stream().map(Invariant::name).toList(),
@@ -61,16 +64,16 @@ class GovernancePolicyTest {
     @Test
     void theDeclaredInvariantListCannotBeMutatedThroughTheAccessor() {
         GovernancePolicy governance =
-                new GovernancePolicy(policy(), false, profile(), List.of(invariant("only")));
+                GovernancePolicy.withOneLayerMatrix(policy(), false, profile(), List.of(invariant("only")));
 
         assertThrows(UnsupportedOperationException.class, () -> governance.invariants().add(invariant("sneaked_in")));
     }
 
     @Test
     void theSelfCycleChoiceIsCarriedVerbatimInBothDirections() {
-        assertEquals(false, new GovernancePolicy(policy(), false, profile(), List.of())
+        assertEquals(false, GovernancePolicy.withOneLayerMatrix(policy(), false, profile(), List.of())
                 .includeSelfCyclesInCycleEntropy());
-        assertEquals(true, new GovernancePolicy(policy(), true, profile(), List.of())
+        assertEquals(true, GovernancePolicy.withOneLayerMatrix(policy(), true, profile(), List.of())
                 .includeSelfCyclesInCycleEntropy());
     }
 
@@ -80,8 +83,8 @@ class GovernancePolicyTest {
         // CalibrationProfile and most CalibrationFunction/Predicate
         // implementations define none, so equals here would compare
         // identities and pass vacuously.
-        GovernancePolicy one = new GovernancePolicy(policy(), false, profile(), List.of(invariant("budget")));
-        GovernancePolicy other = new GovernancePolicy(policy(), false, profile(), List.of(invariant("budget")));
+        GovernancePolicy one = GovernancePolicy.withOneLayerMatrix(policy(), false, profile(), List.of(invariant("budget")));
+        GovernancePolicy other = GovernancePolicy.withOneLayerMatrix(policy(), false, profile(), List.of(invariant("budget")));
 
         assertEquals(one.layerPolicy().knownRoles(), other.layerPolicy().knownRoles());
         assertEquals(one.layerPolicy().allowedTargets(), other.layerPolicy().allowedTargets());

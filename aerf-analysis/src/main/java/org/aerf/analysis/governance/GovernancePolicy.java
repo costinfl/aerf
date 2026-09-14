@@ -30,14 +30,22 @@ import java.util.Objects;
  * by documentation. An organization that wants no invariants says so with
  * an empty list.
  *
+ * <p>{@link #layerPolicy()} is the <b>default</b> layering matrix: the
+ * one governing any node no declared subsystem claims. Increment 26
+ * (OQ-04) added {@link #subsystemLayerPolicies()} beside it, so an
+ * organization can give a subsystem that evolved in a different era its
+ * own matrix. Declaring none leaves the default governing everything,
+ * which is exactly the behaviour that existed before — on the same code
+ * path, not a parallel one.
+ *
  * <p>What this type deliberately does <em>not</em> carry, each for a
- * recorded reason (see {@code docs/increment-25-*.md}):
+ * recorded reason (see {@code docs/increment-25-*.md} and
+ * {@code docs/increment-26-*.md}):
  * <ul>
- *   <li><b>Any subsystem scope.</b> {@link #layerPolicy()} is one matrix
- *       for the whole graph and {@link #includeSelfCyclesInCycleEntropy()}
- *       is global. OQ-04 and OQ-06 extend exactly these two components,
- *       additively — but how a subsystem is even identified is OQ-04's
- *       decision, and no such concept exists in the graph model today.
+ *   <li><b>Any cycle-entropy scope.</b> {@link #includeSelfCyclesInCycleEntropy()}
+ *       is still one global choice. OQ-06 extends that component, and
+ *       whether cycle scope should reuse OQ-04's subsystem concept is
+ *       its decision to make, not a side effect of this one.
  *   <li><b>Any role assignment.</b> Section 3.3's fourth evidence class,
  *       Governance — an organization declaring a node's role outright —
  *       remains unimplemented. That is the other half of OQ-02 and stays
@@ -50,13 +58,30 @@ import java.util.Objects;
  */
 public record GovernancePolicy(
         LayerPolicy layerPolicy,
+        SubsystemLayerPolicies subsystemLayerPolicies,
         boolean includeSelfCyclesInCycleEntropy,
         CalibrationProfile calibrationProfile,
         List<Invariant> invariants) {
 
     public GovernancePolicy {
         Objects.requireNonNull(layerPolicy, "layerPolicy");
+        Objects.requireNonNull(subsystemLayerPolicies, "subsystemLayerPolicies");
         Objects.requireNonNull(calibrationProfile, "calibrationProfile");
         invariants = List.copyOf(Objects.requireNonNull(invariants, "invariants"));
+    }
+
+    /**
+     * The common case: one layering matrix for the whole graph, no
+     * subsystem declared. Identical to passing
+     * {@link SubsystemLayerPolicies#none()}, and named so that declaring
+     * no subsystems reads as the decision it is.
+     */
+    public static GovernancePolicy withOneLayerMatrix(
+            LayerPolicy layerPolicy,
+            boolean includeSelfCyclesInCycleEntropy,
+            CalibrationProfile calibrationProfile,
+            List<Invariant> invariants) {
+        return new GovernancePolicy(layerPolicy, SubsystemLayerPolicies.none(),
+                includeSelfCyclesInCycleEntropy, calibrationProfile, invariants);
     }
 }

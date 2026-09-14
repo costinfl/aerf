@@ -8,6 +8,7 @@ import org.aerf.model.Role;
 import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.RecordComponent;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 
@@ -77,20 +78,40 @@ class GovernanceBoundaryTest {
     }
 
     @Test
-    void governanceDeclaresNoSubsystemScopeSoOq04AndOq06RemainUndecided() {
-        // OQ-04 (per-subsystem layer matrices) and OQ-06 (cycle entropy
-        // scoped below the whole graph) both extend this record. Neither
-        // can begin until it is decided how a subsystem is identified at
-        // all - no module/package concept exists in the graph model - so
-        // no scope dimension is modelled here in advance.
+    void subsystemDeclarationReachesLayerPolicyOnly() {
+        // Increment 25 pinned that no scope-shaped component existed at
+        // all, because OQ-04 and OQ-06 both needed one and neither could
+        // begin until it was decided how a subsystem is identified.
+        // Increment 26 answered that for OQ-04 - a subsystem is a
+        // governance-declared id prefix - so the pin narrows rather than
+        // disappears: subsystem declaration is allowed to reach the layer
+        // matrix, and nothing else.
+        assertEquals(
+                List.of("layerPolicy", "subsystemLayerPolicies", "includeSelfCyclesInCycleEntropy",
+                        "calibrationProfile", "invariants"),
+                Arrays.stream(GovernancePolicy.class.getRecordComponents())
+                        .map(RecordComponent::getName).toList());
+    }
+
+    @Test
+    void cycleEntropyScopeIsStillOneGlobalChoiceSoOq06RemainsUndecided() {
+        // The half Increment 26 must not answer as a side effect. Whether
+        // cycle entropy can be scoped below the whole graph - and whether
+        // it should reuse OQ-04's subsystem concept at all - is OQ-06's
+        // decision, and section 4.2's self-cycle choice is still a single
+        // global boolean until it makes one.
+        RecordComponent cycleScope = Arrays.stream(GovernancePolicy.class.getRecordComponents())
+                .filter(c -> c.getName().equals("includeSelfCyclesInCycleEntropy"))
+                .findFirst()
+                .orElseThrow();
+
+        assertEquals(boolean.class, cycleScope.getType(),
+                "a scoped cycle policy here means OQ-06 was answered without a decision record");
         for (RecordComponent component : GovernancePolicy.class.getRecordComponents()) {
             String name = component.getName().toLowerCase(Locale.ROOT);
-            assertFalse(name.contains("scope") || name.contains("subsystem") || name.contains("module"),
-                    "a scope-shaped component means OQ-04/OQ-06 were answered: " + component);
+            assertFalse(name.contains("cycle") && name.contains("subsystem"),
+                    "cycle entropy gained subsystem scope as a side effect of OQ-04: " + component);
         }
-        assertEquals(4, GovernancePolicy.class.getRecordComponents().length,
-                "layerPolicy, includeSelfCyclesInCycleEntropy, calibrationProfile, invariants - "
-                        + "one global matrix and one global cycle-scope choice");
     }
 
     @Test

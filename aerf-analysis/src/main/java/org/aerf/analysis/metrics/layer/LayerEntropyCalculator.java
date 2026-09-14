@@ -1,6 +1,8 @@
 package org.aerf.analysis.metrics.layer;
 
 import org.aerf.analysis.calibration.DimensionConfidence;
+import org.aerf.analysis.governance.SubsystemLayerPolicies;
+import org.aerf.analysis.governance.SubsystemLayerPolicy;
 import org.aerf.model.Edge;
 import org.aerf.model.Graph;
 import org.aerf.model.Node;
@@ -30,14 +32,37 @@ import java.util.Set;
  * preserves section 3.5's requirement that unresolved or unclassified
  * information remain visibly separate from a measured result rather than
  * being folded into it either way.
+ *
+ * <p><b>Which matrix judges an edge</b> (Increment 26, OQ-04). An
+ * organization may give a subsystem its own {@link LayerPolicy}. When it
+ * has, <em>the edge's source decides</em>: layering constrains what a
+ * component may depend on, so the source is the party whose declared
+ * rules are being tested, and a cross-subsystem edge is judged by the
+ * matrix its caller declared. An edge is therefore always governed by
+ * exactly one matrix — never by none, and never by two — so this can
+ * neither drop an edge from the denominator nor double-count it.
+ * A node no subsystem claims is governed by the default matrix, and
+ * declaring no subsystems at all leaves every edge governed by the
+ * default, which is exactly this class's behaviour before OQ-04.
+ *
+ * <p>Note the relevance filter uses the <em>governing</em> policy too:
+ * whether an edge is measurable at all is a question only the matrix
+ * actually judging it can answer.
  */
 public final class LayerEntropyCalculator {
 
-    private final LayerPolicy policy;
+    private final LayerPolicy defaultPolicy;
+    private final SubsystemLayerPolicies subsystemPolicies;
     private final Set<RelationType> relevantRelations;
 
-    public LayerEntropyCalculator(LayerPolicy policy, Set<RelationType> relevantRelations) {
-        this.policy = Objects.requireNonNull(policy, "policy");
+    public LayerEntropyCalculator(LayerPolicy defaultPolicy, Set<RelationType> relevantRelations) {
+        this(defaultPolicy, SubsystemLayerPolicies.none(), relevantRelations);
+    }
+
+    public LayerEntropyCalculator(LayerPolicy defaultPolicy, SubsystemLayerPolicies subsystemPolicies,
+                                  Set<RelationType> relevantRelations) {
+        this.defaultPolicy = Objects.requireNonNull(defaultPolicy, "defaultPolicy");
+        this.subsystemPolicies = Objects.requireNonNull(subsystemPolicies, "subsystemPolicies");
         this.relevantRelations = Set.copyOf(Objects.requireNonNull(relevantRelations, "relevantRelations"));
     }
 
@@ -48,6 +73,18 @@ public final class LayerEntropyCalculator {
      */
     public static LayerEntropyCalculator withCallAndDependsRelations(LayerPolicy policy) {
         return new LayerEntropyCalculator(policy, EnumSet.of(RelationType.CALL, RelationType.DEPENDS));
+    }
+
+    /**
+     * As {@link #withCallAndDependsRelations(LayerPolicy)}, with per-subsystem
+     * matrices layered over the default one (OQ-04). The relation set is
+     * identical either way — subsystem declaration changes which matrix
+     * judges an edge, never which edges are in scope.
+     */
+    public static LayerEntropyCalculator withCallAndDependsRelations(
+            LayerPolicy defaultPolicy, SubsystemLayerPolicies subsystemPolicies) {
+        return new LayerEntropyCalculator(
+                defaultPolicy, subsystemPolicies, EnumSet.of(RelationType.CALL, RelationType.DEPENDS));
     }
 
     /**
@@ -75,17 +112,33 @@ public final class LayerEntropyCalculator {
             if (sourceRole.isEmpty() || targetRole.isEmpty()) {
                 continue;
             }
-            if (!policy.knowsRole(sourceRole.get()) || !policy.knowsRole(targetRole.get())) {
+            LayerPolicy governing = governingPolicy(edge.source());
+            if (!governing.knowsRole(sourceRole.get()) || !governing.knowsRole(targetRole.get())) {
                 continue;
             }
 
             relevant.add(edge);
-            if (!policy.isAllowed(sourceRole.get(), targetRole.get())) {
+            if (!governing.isAllowed(sourceRole.get(), targetRole.get())) {
                 violating.add(edge);
             }
         }
 
         return new LayerEntropyResult(relevant, violating);
+    }
+
+    /**
+     * The matrix judging an edge, chosen by its source. Falls back to the
+     * default for a node no subsystem claims — and {@code
+     * SubsystemLayerPolicies} guarantees at most one claimant, so this is
+     * independent of declaration order.
+     */
+    private LayerPolicy governingPolicy(NodeRef source) {
+        if (source instanceof NodeRef.Resolved resolved) {
+            return subsystemPolicies.governing(resolved.id())
+                    .map(SubsystemLayerPolicy::layerPolicy)
+                    .orElse(defaultPolicy);
+        }
+        return defaultPolicy;
     }
 
     private static Optional<Role> resolveRole(Graph graph, NodeRef ref) {

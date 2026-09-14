@@ -78,7 +78,7 @@ class PipelineConfigTest {
     }
 
     private static GovernancePolicy governance() {
-        return new GovernancePolicy(
+        return GovernancePolicy.withOneLayerMatrix(
                 LayerPolicy.of(Set.of(Role.PRESENTATION), Map.of()),
                 false,
                 CalibrationProfile.of(List.of(new WeightedDimension("layer", 1.0, new LinearCalibration()))),

@@ -110,7 +110,7 @@ public final class Main {
                 new WeightedDimension("persistence", 1.0 / 3.0, new LinearCalibration()),
                 new WeightedDimension("security", 0.0, new LinearCalibration())));
 
-        return new GovernancePolicy(
+        return GovernancePolicy.withOneLayerMatrix(
                 layerPolicy,
                 false,
                 calibrationProfile,

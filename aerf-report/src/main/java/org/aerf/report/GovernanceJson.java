@@ -2,6 +2,7 @@ package org.aerf.report;
 
 import org.aerf.analysis.calibration.WeightedDimension;
 import org.aerf.analysis.governance.GovernancePolicy;
+import org.aerf.analysis.governance.SubsystemLayerPolicy;
 import org.aerf.analysis.invariant.Invariant;
 import org.aerf.analysis.metrics.layer.LayerPolicy;
 import org.aerf.model.Role;
@@ -45,6 +46,8 @@ public final class GovernanceJson {
     public static JsonValue policy(GovernancePolicy governance) {
         return new JsonObjectBuilder()
                 .put("layerPolicy", layerPolicy(governance.layerPolicy()))
+                .put("subsystemLayerPolicies", JsonSupport.array(
+                        governance.subsystemLayerPolicies().declared(), GovernanceJson::subsystemLayerPolicy))
                 .put("includeSelfCyclesInCycleEntropy", governance.includeSelfCyclesInCycleEntropy())
                 .put("calibration", JsonSupport.array(
                         governance.calibrationProfile().dimensions(), GovernanceJson::weightedDimension))
@@ -66,6 +69,20 @@ public final class GovernanceJson {
         return new JsonObjectBuilder()
                 .put("knownRoles", roles(layerPolicy.knownRoles()))
                 .put("allowedTargets", allowedTargets.build())
+                .build();
+    }
+
+    /**
+     * One subsystem's declaration (OQ-04), in the order it was declared.
+     * An organization that declared none emits an empty array rather than
+     * nothing at all: choosing a single matrix for the whole graph is a
+     * governance decision, not the absence of one.
+     */
+    private static JsonValue subsystemLayerPolicy(SubsystemLayerPolicy subsystem) {
+        return new JsonObjectBuilder()
+                .put("name", subsystem.name())
+                .put("idPrefix", subsystem.idPrefix())
+                .put("layerPolicy", layerPolicy(subsystem.layerPolicy()))
                 .build();
     }
 
