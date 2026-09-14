@@ -2,6 +2,7 @@ package org.aerf.pipeline;
 
 import org.aerf.analysis.calibration.EntropySnapshot;
 import org.aerf.analysis.calibration.MaturityLevel;
+import org.aerf.analysis.governance.ExceptionLedger;
 import org.aerf.analysis.governance.GovernancePolicy;
 import org.aerf.analysis.invariant.InvariantEvaluationResult;
 import org.aerf.analysis.metrics.cycle.CycleEntropyResult;
@@ -40,9 +41,17 @@ import java.util.OptionalDouble;
  * layering matrix, calibration weights and invariants that produced it,
  * and before this a reader had no way to recover them. It is a copy of
  * the caller's own declaration, not a derivation.
+ *
+ * <p>{@link #exceptionLedger()} is the governance verdict on this run's
+ * findings (Increment 28, OQ-09): which of them the organization has
+ * already accepted, and which declared exceptions matched nothing. It
+ * sits beside the measurements and alters none of them — every entropy
+ * value above is what was measured, and every finding is still in its own
+ * result list with its evidence intact.
  */
 public record PipelineReport(
         GovernancePolicy governance,
+        ExceptionLedger exceptionLedger,
         Graph graph,
         int roleRefinementPasses,
         LayerEntropyResult layerEntropy,
@@ -60,6 +69,7 @@ public record PipelineReport(
 
     public PipelineReport {
         Objects.requireNonNull(governance, "governance");
+        Objects.requireNonNull(exceptionLedger, "exceptionLedger");
         Objects.requireNonNull(graph, "graph");
         Objects.requireNonNull(layerEntropy, "layerEntropy");
         Objects.requireNonNull(cycleEntropy, "cycleEntropy");

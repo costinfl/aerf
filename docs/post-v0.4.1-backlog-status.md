@@ -49,7 +49,7 @@ this phase is **0.2.0-SNAPSHOT**.
 
 | OQ | Question | Status | Decision | Increment |
 |---|---|---|---|---|
-| OQ-09 | Approved exceptions and persistence findings | OPEN — unblocked by increment 25; `GovernancePolicy` is the surface an exception would be declared on | — | 28 |
+| OQ-09 | Approved exceptions and persistence findings | **DECIDED / IMPLEMENTED** | **An approved exception is an acceptance of a finding, never a denial of it, and it changes no measured value.** Answering the commission's fifth bullet precisely: suppression affects **governance presentation alone** — not entropy, not the finding lists, not risk. Decisive reason: drift is already implemented, so an exception that lowered `E_P` would register as *code improvement* against a stored baseline. `ApprovedException(target, reason, approvedBy)` requires all three — an exception without a justification or an owner is an unexplained hole. `ExceptionTarget` is `OfNode`/`OfEdge` by **exact id, never prefix** (unlike `Subsystem`: an exception is a narrow admission about one reviewed finding). Excusal is computed **downstream of every calculator** by `ApprovedExceptionEvaluator` into an `ExceptionLedger`, so no metric gains an "excused" bucket and measurement-neutrality is *structural* — no calculator was modified at all. Evidence is untouched by force as well as by choice: its contract models only what was observed, with a live tripwire. Unmatched exceptions are reported, following `skippedInvariants`. Demonstrated on real code: legacy petclinic's genuine N+1 excused with `E_P` unmoved at 0.125 and the finding still listed in full. **Deferred:** cycle findings (an SCC is a *set*) and GRAPH-scope violations (nothing addressable), both guarded by test. | 28 |
 | OQ-15 | Invariant aggregation `E_inv` | OPEN — unblocked by increment 25; still blocked on invariants carrying no weight (blocker 2 below), so λ_k has nowhere to live | — | 29 |
 | OQ-14 | Drift-aware risk model `R` | BLOCKED on OQ-15 | — | 30 |
 | OQ-16 | Unified governance-facing view | BLOCKED on OQ-14 | — | 31 |
@@ -87,7 +87,7 @@ speculation, and they change what the affected items can even mean:
    *Still true after increment 25* — that increment named and grouped the
    governance surface, it did not make it declarative.
 
-## Findings recorded by increments 25-27, deferred to a named owner
+## Findings recorded by increments 25-28, deferred to a named owner
 
 Each is guarded by a test in `GovernanceBoundaryTest` or
 `GovernanceReportEndToEndTest`, so it is reopened deliberately rather
@@ -104,3 +104,6 @@ than discovered by accident.
 | G | **Cross-subsystem layer semantics are untested by real code.** Every relevant layer edge in the petclinic evidence base is intra-package, so "the source's matrix governs" is decided on principle and tested synthetically only. | revisit when a multi-module repository enters the evidence base |
 | H | **A cycle-tolerance policy is not implemented.** OQ-06's other half — letting governance declare a cycle confined to one subsystem irrelevant. It would change §4.2's own definition of which SCCs count rather than extend governance configuration, and there is **no cycle anywhere in the evidence base** to calibrate it against: all eight committed sample reports show `cycleEntropy: 0.0` with zero SCCs, across both petclinics. Guarded by test. | revisit when a real repository with a cycle enters the evidence base |
 | I | **Cycle entropy has no real-repository demonstration.** Increment 27's semantics are exercised end to end only against the new `cyclic-sample` fixture, because no scanned repository contains a cycle. Unlike OQ-04, which moved a real measurement 14/21 → 11/21 on petclinic. | same as H |
+| J | **Cycle findings and GRAPH-scope invariant violations cannot be excused.** A relevant SCC is a *set* of nodes, so excusing one must first decide whether naming a member excuses the whole cycle and what a partially-excused cycle means for a node-scoped ratio; a `ViolationSubject.OfGraph` names nothing an approver could address. Guarded by test. | a future decision, if evidence appears |
+| K | **Approved exceptions do not expire.** Nothing in AERF reads a clock, and "expired" needs semantics the risk model has not defined. A stale exception is visible only once it stops matching (`unmatched`); a *matched* exception may be years old and unreviewed, and the report cannot say so. | OQ-14 (increment 30) |
+| L | **Nothing consumes the exception ledger yet.** Increment 28 stops at making excusal observable; a risk model that counts unexcused rather than all findings is the intended consumer. | OQ-14 (increment 30) |

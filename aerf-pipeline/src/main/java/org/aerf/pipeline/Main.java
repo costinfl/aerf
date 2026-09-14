@@ -13,6 +13,7 @@ import org.aerf.analysis.role.seed.DefaultSeedRules;
 import org.aerf.model.Role;
 import org.aerf.extraction.ExtractionRequest;
 import org.aerf.report.CalibrationJson;
+import org.aerf.report.ExceptionJson;
 import org.aerf.report.GovernanceJson;
 import org.aerf.report.GraphJson;
 import org.aerf.report.InvariantJson;
@@ -144,6 +145,7 @@ public final class Main {
                 .put("maturityLevel", report.maturityLevel().map(CalibrationJson::maturityLevel).orElse(JsonValue.JsonNull.INSTANCE))
                 .put("confidence", CalibrationJson.confidence(report.confidence()))
                 .put("confidenceByDimension", CalibrationJson.confidenceByDimension(report.confidenceByDimension()))
+                .put("exceptionLedger", ExceptionJson.ledger(report.exceptionLedger()))
                 .put("invariants", invariants.build())
                 .put("skippedInvariants", new JsonValue.JsonArray(
                         report.skippedInvariants().stream().map(d -> (JsonValue) new JsonValue.JsonString(d)).toList()))

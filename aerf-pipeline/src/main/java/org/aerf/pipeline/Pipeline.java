@@ -3,6 +3,8 @@ package org.aerf.pipeline;
 import org.aerf.analysis.calibration.AggregatedEntropy;
 import org.aerf.analysis.calibration.AnalysisConfidence;
 import org.aerf.analysis.calibration.Maturity;
+import org.aerf.analysis.governance.ApprovedExceptionEvaluator;
+import org.aerf.analysis.governance.ExceptionLedger;
 import org.aerf.analysis.calibration.MaturityLevel;
 import org.aerf.analysis.invariant.Invariant;
 import org.aerf.analysis.invariant.InvariantEvaluationResult;
@@ -134,7 +136,15 @@ public final class Pipeline {
             }
         }
 
-        return new PipelineReport(config.governance(), graph, roleResult.passes(), layerEntropy, cycleEntropy, persistenceEntropy,
+        // Strictly downstream of every measurement: the ledger says which
+        // findings governance has already accepted, and changes none of
+        // them. See ApprovedExceptionEvaluator on why excusal lives here
+        // rather than inside a calculator.
+        ExceptionLedger exceptionLedger = ApprovedExceptionEvaluator.evaluate(
+                config.governance().approvedExceptions(),
+                layerEntropy, persistenceEntropy, securityEntropy, invariantResults);
+
+        return new PipelineReport(config.governance(), exceptionLedger, graph, roleResult.passes(), layerEntropy, cycleEntropy, persistenceEntropy,
                 securityEntropy, totalEntropy, maturity, maturityLevel, confidence, confidenceByDimension,
                 List.copyOf(invariantResults), List.copyOf(skippedInvariants), extraction.diagnostics());
     }

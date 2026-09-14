@@ -3,6 +3,7 @@ package org.aerf.report;
 import org.aerf.analysis.calibration.CalibrationProfile;
 import org.aerf.analysis.calibration.LinearCalibration;
 import org.aerf.analysis.calibration.WeightedDimension;
+import org.aerf.analysis.governance.ApprovedExceptions;
 import org.aerf.analysis.governance.GovernancePolicy;
 import org.aerf.analysis.governance.Subsystems;
 import org.aerf.analysis.governance.Subsystem;
@@ -175,7 +176,7 @@ class GovernanceJsonTest {
                 Subsystems.of(List.of(
                         Subsystem.withLayerPolicy("shipping", "com.example.shipping", legacy),
                         Subsystem.withLayerPolicy("billing", "com.example.billing", policy()))),
-                false, profile(), List.of())));
+                false, profile(), List.of(), ApprovedExceptions.none())));
 
         assertTrue(json.contains(
                 "\"subsystems\":["
@@ -197,7 +198,7 @@ class GovernanceJsonTest {
                 policy(),
                 Subsystems.of(List.of(
                         Subsystem.withLayerPolicy("billing", "com.example.billing", policy()))),
-                false, profile(), List.of())));
+                false, profile(), List.of(), ApprovedExceptions.none())));
 
         assertTrue(json.contains("\"name\":\"billing\""), json);
         assertTrue(json.contains("\"idPrefix\":\"com.example.billing\""), json);
@@ -212,7 +213,7 @@ class GovernanceJsonTest {
         String json = JsonWriter.write(GovernanceJson.policy(new GovernancePolicy(
                 policy(),
                 Subsystems.of(List.of(Subsystem.of("billing", "com.example.billing"))),
-                false, profile(), List.of())));
+                false, profile(), List.of(), ApprovedExceptions.none())));
 
         assertTrue(json.contains(
                 "\"subsystems\":[{\"name\":\"billing\",\"idPrefix\":\"com.example.billing\","

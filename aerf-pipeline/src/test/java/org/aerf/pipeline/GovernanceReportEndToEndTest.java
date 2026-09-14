@@ -116,7 +116,8 @@ class GovernanceReportEndToEndTest {
                         Subsystems.of(List.of(
                                 Subsystem.withLayerPolicy("everything", "com", permissive))),
                         governance.includeSelfCyclesInCycleEntropy(),
-                        governance.calibrationProfile(), governance.invariants())));
+                        governance.calibrationProfile(), governance.invariants(),
+                        governance.approvedExceptions())));
 
         assertEquals(strict.layerEntropy().relevantEdges().size(),
                 relaxed.layerEntropy().relevantEdges().size(),

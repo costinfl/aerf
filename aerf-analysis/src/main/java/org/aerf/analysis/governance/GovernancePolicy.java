@@ -38,6 +38,13 @@ import java.util.Objects;
  * exactly the behaviour that existed before — on the same code path, not
  * a parallel one.
  *
+ * <p>{@link #approvedExceptions()} (Increment 28, OQ-09) records the
+ * findings an organization has looked at and decided to live with. It
+ * changes no measured value and removes no finding: it produces an
+ * {@code ExceptionLedger} beside the measurements, saying which findings
+ * are already accepted and by whom. See {@link ApprovedException} for why
+ * acceptance must not move a number.
+ *
  * <p>{@link #subsystems()} serves cycle entropy too since Increment 27
  * (OQ-06), which reports a value per declared subsystem alongside the
  * unchanged global one. One declaration, two scoped dimensions — so a
@@ -71,13 +78,15 @@ public record GovernancePolicy(
         Subsystems subsystems,
         boolean includeSelfCyclesInCycleEntropy,
         CalibrationProfile calibrationProfile,
-        List<Invariant> invariants) {
+        List<Invariant> invariants,
+        ApprovedExceptions approvedExceptions) {
 
     public GovernancePolicy {
         Objects.requireNonNull(layerPolicy, "layerPolicy");
         Objects.requireNonNull(subsystems, "subsystems");
         Objects.requireNonNull(calibrationProfile, "calibrationProfile");
         invariants = List.copyOf(Objects.requireNonNull(invariants, "invariants"));
+        Objects.requireNonNull(approvedExceptions, "approvedExceptions");
     }
 
     /**
@@ -92,6 +101,7 @@ public record GovernancePolicy(
             CalibrationProfile calibrationProfile,
             List<Invariant> invariants) {
         return new GovernancePolicy(layerPolicy, Subsystems.none(),
-                includeSelfCyclesInCycleEntropy, calibrationProfile, invariants);
+                includeSelfCyclesInCycleEntropy, calibrationProfile, invariants,
+                ApprovedExceptions.none());
     }
 }

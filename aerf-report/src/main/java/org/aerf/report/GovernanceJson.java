@@ -52,6 +52,8 @@ public final class GovernanceJson {
                 .put("calibration", JsonSupport.array(
                         governance.calibrationProfile().dimensions(), GovernanceJson::weightedDimension))
                 .put("invariants", JsonSupport.array(governance.invariants(), GovernanceJson::invariant))
+                .put("approvedExceptions", JsonSupport.array(
+                        governance.approvedExceptions().declared(), ExceptionJson::approvedException))
                 .build();
     }
 

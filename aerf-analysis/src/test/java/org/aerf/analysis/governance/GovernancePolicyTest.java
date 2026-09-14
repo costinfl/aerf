@@ -30,14 +30,17 @@ class GovernancePolicyTest {
         // acceptance) enforced by the compiler and these checks rather
         // than by documentation: there is nowhere for a default to hide.
         Subsystems none = Subsystems.none();
+        ApprovedExceptions noExceptions = ApprovedExceptions.none();
         assertThrows(NullPointerException.class,
-                () -> new GovernancePolicy(null, none, false, profile(), List.of()));
+                () -> new GovernancePolicy(null, none, false, profile(), List.of(), noExceptions));
         assertThrows(NullPointerException.class,
-                () -> new GovernancePolicy(policy(), null, false, profile(), List.of()));
+                () -> new GovernancePolicy(policy(), null, false, profile(), List.of(), noExceptions));
         assertThrows(NullPointerException.class,
-                () -> new GovernancePolicy(policy(), none, false, null, List.of()));
+                () -> new GovernancePolicy(policy(), none, false, null, List.of(), noExceptions));
         assertThrows(NullPointerException.class,
-                () -> new GovernancePolicy(policy(), none, false, profile(), null));
+                () -> new GovernancePolicy(policy(), none, false, profile(), null, noExceptions));
+        assertThrows(NullPointerException.class,
+                () -> new GovernancePolicy(policy(), none, false, profile(), List.of(), null));
     }
 
     @Test

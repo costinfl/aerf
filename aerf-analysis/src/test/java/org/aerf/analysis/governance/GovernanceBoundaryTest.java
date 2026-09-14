@@ -64,6 +64,35 @@ class GovernanceBoundaryTest {
     }
 
     @Test
+    void anApprovedExceptionNeverBecomesEvidenceOrReachesAFinding() {
+        // Increment 28's central structural claim. An exception is a
+        // governance declaration, and Evidence models only what was
+        // observed - so excusal is held in a separate ledger and never
+        // written onto an edge, a finding, or its provenance. If an
+        // exception type ever appears inside the model or a metric result,
+        // the "never silently mutate source evidence" constraint has been
+        // broken and this fails.
+        for (RecordComponent component : ExcusedFinding.class.getRecordComponents()) {
+            assertFalse(component.getGenericType().getTypeName()
+                            .contains(org.aerf.model.Evidence.class.getName()),
+                    "an excused finding must not carry or rewrite evidence: " + component);
+        }
+        for (Class<?> resultType : List.of(
+                org.aerf.analysis.metrics.layer.LayerEntropyResult.class,
+                org.aerf.analysis.metrics.persistence.PersistenceEntropyResult.class,
+                org.aerf.analysis.metrics.cycle.CycleEntropyResult.class,
+                org.aerf.analysis.metrics.security.SecurityEntropyResult.class)) {
+            for (RecordComponent component : resultType.getRecordComponents()) {
+                String type = component.getGenericType().getTypeName();
+                assertFalse(type.contains("ApprovedException") || type.contains("Excused")
+                                || component.getName().toLowerCase(Locale.ROOT).contains("excus"),
+                        "a metric result gained an excusal bucket - suppression belongs in the ledger, "
+                                + "downstream of measurement: " + resultType.getSimpleName() + "." + component);
+            }
+        }
+    }
+
+    @Test
     void evidenceStillModelsOnlyWhatWasObservedSoADeclarationHasNoNaturalPlaceInIt() {
         // The second obstacle. Evidence's own contract is that it "always
         // represents something that was actually observed", which a
@@ -89,7 +118,7 @@ class GovernanceBoundaryTest {
         // was asking.
         assertEquals(
                 List.of("layerPolicy", "subsystems", "includeSelfCyclesInCycleEntropy",
-                        "calibrationProfile", "invariants"),
+                        "calibrationProfile", "invariants", "approvedExceptions"),
                 Arrays.stream(GovernancePolicy.class.getRecordComponents())
                         .map(RecordComponent::getName).toList());
     }
