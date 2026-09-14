@@ -34,6 +34,11 @@
     </dependency>
     <dependency>
       <groupId>org.aerf</groupId>
+      <artifactId>aerf-extraction</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.aerf</groupId>
       <artifactId>aerf-analysis</artifactId>
       <version>${project.version}</version>
     </dependency>

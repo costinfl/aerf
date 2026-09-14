@@ -2,7 +2,9 @@ package org.aerf.analysis.metrics.layer;
 
 import org.aerf.model.Role;
 
+import java.util.Collection;
 import java.util.Collections;
+import java.util.EnumSet;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
@@ -35,10 +37,14 @@ public final class LayerPolicy {
     private final Map<Role, Set<Role>> allowedTargets;
 
     private LayerPolicy(Set<Role> knownRoles, Map<Role, Set<Role>> allowedTargets) {
-        this.knownRoles = Set.copyOf(Objects.requireNonNull(knownRoles, "knownRoles"));
+        this.knownRoles = canonical(Objects.requireNonNull(knownRoles, "knownRoles"));
+        Objects.requireNonNull(allowedTargets, "allowedTargets");
 
-        Map<Role, Set<Role>> copy = new LinkedHashMap<>();
-        for (Map.Entry<Role, Set<Role>> entry : Objects.requireNonNull(allowedTargets, "allowedTargets").entrySet()) {
+        // Validation walks the caller's own map, so an entry naming a role
+        // outside knownRoles still throws - iterating Role.values() instead
+        // would silently skip exactly the entries these two checks exist to
+        // reject.
+        for (Map.Entry<Role, Set<Role>> entry : allowedTargets.entrySet()) {
             Role source = entry.getKey();
             if (!this.knownRoles.contains(source)) {
                 throw new IllegalArgumentException("source role " + source + " is not in knownRoles");
@@ -49,9 +55,40 @@ public final class LayerPolicy {
                             "target role " + target + " (allowed from " + source + ") is not in knownRoles");
                 }
             }
-            copy.put(source, Set.copyOf(entry.getValue()));
+        }
+
+        // Storage order, by contrast, is canonicalized on Role's own
+        // declaration order rather than inherited from the caller. Since
+        // Increment 25 the declared matrix is readable back (and reaches
+        // serialized output via GovernanceJson), and every caller in this
+        // project builds it with Map.of or Collectors.toMap - neither of
+        // which specifies an iteration order, and Map.of deliberately
+        // randomizes it per JVM invocation. Preserving the caller's order
+        // would therefore make identical governance produce
+        // differently-ordered JSON across runs, which section 14 forbids.
+        // A role declared known but given no entry stays absent: inventing
+        // an empty entry for it would be deriving a matrix rather than
+        // reporting one.
+        Map<Role, Set<Role>> copy = new LinkedHashMap<>();
+        for (Role source : Role.values()) {
+            Set<Role> targets = allowedTargets.get(source);
+            if (targets != null) {
+                copy.put(source, canonical(targets));
+            }
         }
         this.allowedTargets = Collections.unmodifiableMap(copy);
+    }
+
+    /**
+     * An immutable, {@code Role}-declaration-ordered copy. {@code
+     * EnumSet.copyOf} throws {@code IllegalArgumentException} on an empty
+     * collection when it cannot infer the element type, so the empty case
+     * is built explicitly - a policy may legitimately know no roles, or
+     * permit a known role no targets at all.
+     */
+    private static Set<Role> canonical(Collection<Role> roles) {
+        return Collections.unmodifiableSet(
+                roles.isEmpty() ? EnumSet.noneOf(Role.class) : EnumSet.copyOf(roles));
     }
 
     /**
@@ -62,6 +99,32 @@ public final class LayerPolicy {
      */
     public static LayerPolicy of(Set<Role> knownRoles, Map<Role, Set<Role>> allowedTargets) {
         return new LayerPolicy(knownRoles, allowedTargets);
+    }
+
+    /**
+     * Every role this policy can judge, in {@link Role} declaration
+     * order (Increment 25, OQ-02: a governance declaration nobody can
+     * read back is not inspectable).
+     *
+     * <p>This does not weaken the no-derivation guarantee above. That
+     * guarantee is about <em>construction</em> — no factory may infer a
+     * matrix from an ordering. These accessors run the opposite
+     * direction: they report what was explicitly declared, and cannot be
+     * used to build a policy out of an ordering.
+     */
+    public Set<Role> knownRoles() {
+        return knownRoles;
+    }
+
+    /**
+     * The declared matrix, exactly as declared: source role to the roles
+     * it may call, in {@link Role} declaration order at both levels. A
+     * role that is {@linkplain #knowsRole known} but was given no entry
+     * is <em>absent</em> here rather than mapped to an empty set — see
+     * the constructor on why materializing one would be derivation.
+     */
+    public Map<Role, Set<Role>> allowedTargets() {
+        return allowedTargets;
     }
 
     /** Whether this policy has an opinion about the given role at all. */

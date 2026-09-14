@@ -125,4 +125,38 @@ class LayerEntropyCalculatorTest {
         assertTrue(result.relevantEdges().isEmpty());
         assertTrue(result.value().isEmpty());
     }
+
+    @Test
+    void layerEntropyIsUnchangedWhenTheMatrixIsStoredInCanonicalOrder() {
+        // Increment 25 changed how LayerPolicy stores its matrix (Role
+        // declaration order, rather than whatever order the caller's map
+        // iterated in). That is the one Increment 25 change that touches a
+        // type on the measurement path, so it gets a direct no-move pin:
+        // the same matrix declared in two different orders must produce
+        // the same relevant edges, the same violations and the same value.
+        java.util.Map<Role, Set<Role>> forwards = new java.util.LinkedHashMap<>();
+        forwards.put(Role.PRESENTATION, Set.of(Role.PRESENTATION, Role.APPLICATION));
+        forwards.put(Role.APPLICATION, Set.of(Role.APPLICATION, Role.DOMAIN, Role.PERSISTENCE));
+        forwards.put(Role.DOMAIN, Set.of(Role.DOMAIN, Role.PERSISTENCE));
+        forwards.put(Role.PERSISTENCE, Set.of(Role.PERSISTENCE, Role.INFRASTRUCTURE));
+        forwards.put(Role.INFRASTRUCTURE, Set.of(Role.INFRASTRUCTURE));
+
+        java.util.Map<Role, Set<Role>> backwards = new java.util.LinkedHashMap<>();
+        List<Role> reversedKeys = new java.util.ArrayList<>(forwards.keySet());
+        java.util.Collections.reverse(reversedKeys);
+        reversedKeys.forEach(role -> backwards.put(role, forwards.get(role)));
+
+        Set<Role> knownRoles = Set.of(Role.PRESENTATION, Role.APPLICATION, Role.DOMAIN,
+                Role.PERSISTENCE, Role.INFRASTRUCTURE);
+        Graph graph = CanonicalSampleGraphs.layeredOrderSlice();
+
+        LayerEntropyResult fromForwards = LayerEntropyCalculator
+                .withCallAndDependsRelations(LayerPolicy.of(knownRoles, forwards)).compute(graph);
+        LayerEntropyResult fromBackwards = LayerEntropyCalculator
+                .withCallAndDependsRelations(LayerPolicy.of(knownRoles, backwards)).compute(graph);
+
+        assertEquals(fromForwards.relevantEdges(), fromBackwards.relevantEdges());
+        assertEquals(fromForwards.violatingEdges(), fromBackwards.violatingEdges());
+        assertEquals(fromForwards.value(), fromBackwards.value());
+    }
 }

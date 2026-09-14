@@ -2,6 +2,7 @@ package org.aerf.pipeline;
 
 import org.aerf.analysis.calibration.EntropySnapshot;
 import org.aerf.analysis.calibration.MaturityLevel;
+import org.aerf.analysis.governance.GovernancePolicy;
 import org.aerf.analysis.invariant.InvariantEvaluationResult;
 import org.aerf.analysis.metrics.cycle.CycleEntropyResult;
 import org.aerf.analysis.metrics.layer.LayerEntropyResult;
@@ -32,8 +33,16 @@ import java.util.OptionalDouble;
  * {@link #extractionDiagnostics()} carries anything
  * {@code JavaSourceExtractor} itself reported (e.g. an unparseable
  * file) that isn't a graph fact at all.
+ *
+ * <p>{@link #governance()} is the {@code GovernancePolicy} this run was
+ * measured under (Increment 25, OQ-02), carried so the report is
+ * self-describing: every number below is only meaningful relative to the
+ * layering matrix, calibration weights and invariants that produced it,
+ * and before this a reader had no way to recover them. It is a copy of
+ * the caller's own declaration, not a derivation.
  */
 public record PipelineReport(
+        GovernancePolicy governance,
         Graph graph,
         int roleRefinementPasses,
         LayerEntropyResult layerEntropy,
@@ -50,6 +59,7 @@ public record PipelineReport(
         List<String> extractionDiagnostics) {
 
     public PipelineReport {
+        Objects.requireNonNull(governance, "governance");
         Objects.requireNonNull(graph, "graph");
         Objects.requireNonNull(layerEntropy, "layerEntropy");
         Objects.requireNonNull(cycleEntropy, "cycleEntropy");

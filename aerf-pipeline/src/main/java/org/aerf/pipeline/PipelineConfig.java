@@ -1,54 +1,55 @@
 package org.aerf.pipeline;
 
-import org.aerf.analysis.calibration.CalibrationProfile;
-import org.aerf.analysis.invariant.Invariant;
-import org.aerf.analysis.metrics.layer.LayerPolicy;
-import org.aerf.analysis.metrics.security.SecurityOpportunityRule;
-import org.aerf.analysis.role.GraphRoleRefinementRule;
-import org.aerf.analysis.role.RoleInferenceRule;
+import org.aerf.analysis.detection.DetectionCatalog;
+import org.aerf.analysis.governance.GovernancePolicy;
+import org.aerf.extraction.ExtractionRequest;
 
-import java.nio.file.Path;
-import java.util.List;
 import java.util.Objects;
 
 /**
- * Everything one {@link Pipeline#run(PipelineConfig)} call needs, beyond
- * the graph itself. Every governance-sensitive input — {@link
- * #layerPolicy()}, {@link #calibrationProfile()}, {@link #invariants()} —
- * is a required, explicit field with no built-in default: {@code
- * LayerPolicy} and {@code CalibrationFunction} are both already
- * documented as "must be an explicit governance choice," and this
- * config's own job is to carry that choice through to {@link Pipeline},
- * never to make it. {@link #seedRules()}, {@link #refinementRules()}, and
- * {@link #securityRules()} accept the project's own "illustrative, not
- * part of v0.4" catalogs the same way every existing test already does
- * (e.g. {@code DefaultSeedRules.illustrativeRules()}) — they are not
- * exempt from being explicit, only from needing a bespoke example
- * per caller, since a reusable illustrative catalog already exists for
- * each.
+ * Everything one {@link Pipeline#run(PipelineConfig)} call needs, in
+ * three parts that differ by <em>who authors them</em> (Increment 25,
+ * OQ-02):
+ *
+ * <ul>
+ *   <li>{@link #extraction()} — engineering input: what to look at, and
+ *       with how much type information. Supplied by whoever runs the scan.
+ *   <li>{@link #detection()} — technology knowledge: how a framework's
+ *       conventions are recognized. Authored by whoever maintains the
+ *       adapter or knows the stack.
+ *   <li>{@link #governance()} — the organization's own declaration of
+ *       what it will tolerate. Authored by governance.
+ * </ul>
+ *
+ * <p>Until Increment 25 these nine values were one flat list, so the
+ * boundary between an organization's declarations and source-derived
+ * engineering evidence existed only in prose. It is now in the type
+ * system, which is what OQ-02's "governance input is represented
+ * explicitly" and "its boundary from source-derived engineering evidence
+ * is clear" ask for.
+ *
+ * <p>There is deliberately no default for any of the three, and none
+ * inside {@link GovernancePolicy} either — see its documentation on why
+ * a governance choice must never be made silently on an organization's
+ * behalf. {@link ExtractionRequest} is reused rather than reinvented: it
+ * already carries exactly {@code (sourceRoots, classpath)} and already
+ * enforces a non-empty source root, so that check is not duplicated here.
+ *
+ * <p>A fourth class of input exists but is not represented here at all:
+ * <em>measurement definition</em> — which relations each dimension
+ * measures over, the four dimension names, {@code MEMBER_OF}'s exclusion
+ * from confidence. Those are fixed by AERF v0.4 section 4 rather than
+ * declared by anyone, and {@link Pipeline} composes them directly. See
+ * {@code docs/increment-25-*.md}.
  */
 public record PipelineConfig(
-        List<Path> sourceRoots,
-        List<Path> classpath,
-        List<RoleInferenceRule> seedRules,
-        List<GraphRoleRefinementRule> refinementRules,
-        LayerPolicy layerPolicy,
-        boolean includeSelfCyclesInCycleEntropy,
-        List<SecurityOpportunityRule> securityRules,
-        CalibrationProfile calibrationProfile,
-        List<Invariant> invariants) {
+        ExtractionRequest extraction,
+        DetectionCatalog detection,
+        GovernancePolicy governance) {
 
     public PipelineConfig {
-        sourceRoots = List.copyOf(Objects.requireNonNull(sourceRoots, "sourceRoots"));
-        classpath = List.copyOf(Objects.requireNonNull(classpath, "classpath"));
-        seedRules = List.copyOf(Objects.requireNonNull(seedRules, "seedRules"));
-        refinementRules = List.copyOf(Objects.requireNonNull(refinementRules, "refinementRules"));
-        Objects.requireNonNull(layerPolicy, "layerPolicy");
-        securityRules = List.copyOf(Objects.requireNonNull(securityRules, "securityRules"));
-        Objects.requireNonNull(calibrationProfile, "calibrationProfile");
-        invariants = List.copyOf(Objects.requireNonNull(invariants, "invariants"));
-        if (sourceRoots.isEmpty()) {
-            throw new IllegalArgumentException("sourceRoots must not be empty");
-        }
+        Objects.requireNonNull(extraction, "extraction");
+        Objects.requireNonNull(detection, "detection");
+        Objects.requireNonNull(governance, "governance");
     }
 }

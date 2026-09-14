@@ -3,13 +3,17 @@ package org.aerf.pipeline;
 import org.aerf.analysis.calibration.CalibrationProfile;
 import org.aerf.analysis.calibration.LinearCalibration;
 import org.aerf.analysis.calibration.WeightedDimension;
+import org.aerf.analysis.detection.DetectionCatalog;
+import org.aerf.analysis.governance.GovernancePolicy;
 import org.aerf.analysis.invariant.examples.SpecWorkedExamples;
 import org.aerf.analysis.metrics.layer.LayerPolicy;
 import org.aerf.analysis.metrics.security.rules.DefaultSecurityRules;
 import org.aerf.analysis.role.graph.DefaultGraphRefinementRules;
 import org.aerf.analysis.role.seed.DefaultSeedRules;
 import org.aerf.model.Role;
+import org.aerf.extraction.ExtractionRequest;
 import org.aerf.report.CalibrationJson;
+import org.aerf.report.GovernanceJson;
 import org.aerf.report.GraphJson;
 import org.aerf.report.InvariantJson;
 import org.aerf.report.MetricsJson;
@@ -30,7 +34,7 @@ import java.util.Set;
  * (layer policy, calibration profile, invariants) explicitly — there is
  * no default for any of them anywhere in {@code aerf-analysis} — so a
  * runnable CLI has to make some concrete choice to have anything to run
- * at all. {@link #illustrativeGovernanceConfig} is that choice, built the
+ * at all. {@link #illustrativeConfig} is that choice, built the
  * same way as every other "illustrative, not part of v0.4" catalog in
  * this codebase ({@code DefaultSeedRules}, {@code DefaultSecurityRules},
  * {@code DefaultGraphRefinementRules}): a real deployment is expected to
@@ -58,13 +62,31 @@ public final class Main {
         Path sourceRoot = Path.of(args[0]);
         List<Path> classpath = List.of(args).subList(1, args.length).stream().map(Path::of).toList();
 
-        PipelineConfig config = illustrativeGovernanceConfig(List.of(sourceRoot), classpath);
+        PipelineConfig config = illustrativeConfig(List.of(sourceRoot), classpath);
         PipelineReport report = Pipeline.run(config);
 
         System.out.println(JsonWriter.write(toJson(report)));
     }
 
-    static PipelineConfig illustrativeGovernanceConfig(List<Path> sourceRoots, List<Path> classpath) {
+    static PipelineConfig illustrativeConfig(List<Path> sourceRoots, List<Path> classpath) {
+        return new PipelineConfig(
+                new ExtractionRequest(sourceRoots, classpath),
+                new DetectionCatalog(
+                        DefaultSeedRules.illustrativeRules(),
+                        DefaultGraphRefinementRules.illustrativeRules(),
+                        DefaultSecurityRules.illustrativeRules()),
+                illustrativeGovernance());
+    }
+
+    /**
+     * The governance half of {@link #illustrativeConfig} on its own — the
+     * layering matrix, calibration profile, cycle-scope choice and
+     * invariants an organization would otherwise declare for itself.
+     * Separated in Increment 25 because the old name promised governance
+     * and returned everything, engineering inputs and detection catalogs
+     * included.
+     */
+    static GovernancePolicy illustrativeGovernance() {
         LayerPolicy layerPolicy = LayerPolicy.of(
                 Set.of(Role.PRESENTATION, Role.APPLICATION, Role.DOMAIN, Role.PERSISTENCE, Role.INFRASTRUCTURE),
                 Set.of(Role.PRESENTATION, Role.APPLICATION, Role.DOMAIN, Role.PERSISTENCE, Role.INFRASTRUCTURE).stream()
@@ -88,14 +110,9 @@ public final class Main {
                 new WeightedDimension("persistence", 1.0 / 3.0, new LinearCalibration()),
                 new WeightedDimension("security", 0.0, new LinearCalibration())));
 
-        return new PipelineConfig(
-                sourceRoots,
-                classpath,
-                DefaultSeedRules.illustrativeRules(),
-                DefaultGraphRefinementRules.illustrativeRules(),
+        return new GovernancePolicy(
                 layerPolicy,
                 false,
-                DefaultSecurityRules.illustrativeRules(),
                 calibrationProfile,
                 List.of(SpecWorkedExamples.noPresentationToPersistence(), SpecWorkedExamples.entropyBudget(0.35)));
     }
@@ -110,11 +127,12 @@ public final class Main {
                 : Set.of(role);
     }
 
-    private static JsonValue toJson(PipelineReport report) {
+    static JsonValue toJson(PipelineReport report) {
         JsonObjectBuilder invariants = new JsonObjectBuilder();
         report.invariantResults().forEach(result -> invariants.put(result.invariantName(), InvariantJson.evaluationResult(result)));
 
         return new JsonObjectBuilder()
+                .put("governance", GovernanceJson.policy(report.governance()))
                 .put("graph", GraphJson.graph(report.graph()))
                 .put("roleRefinementPasses", report.roleRefinementPasses())
                 .put("layerEntropy", MetricsJson.layerEntropy(report.layerEntropy()))

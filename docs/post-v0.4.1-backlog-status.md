@@ -41,16 +41,16 @@ this phase is **0.2.0-SNAPSHOT**.
 
 | OQ | Question | Status | Decision | Increment |
 |---|---|---|---|---|
-| OQ-02 | Governance evidence / rule authorship boundary | OPEN | — | 25 |
-| OQ-04 | Per-subsystem layer matrices | BLOCKED on OQ-02, and on deciding how a subsystem is identified at all | — | 26 |
-| OQ-06 | Cycle entropy scope below the whole graph | BLOCKED on OQ-04's subsystem concept | — | 27 |
+| OQ-02 | Governance evidence / rule authorship boundary | **PARTIALLY DECIDED** | **Representation and boundary: decided and implemented.** Four authorship classes — engineering input, detection catalog, governance policy, and measurement definition (fixed by §4, declared by nobody). `GovernancePolicy` gathers the organization's four declarations with **no default for any of them**, so no governance choice can be made silently; `DetectionCatalog` gathers the three technology catalogs; `PipelineConfig` becomes `(ExtractionRequest, DetectionCatalog, GovernancePolicy)`. The grouping is provable by quotation — each member's own javadoc already calls itself governance, and §4.2 says self-cycles are "explicitly governed". `LayerPolicy` is now readable (its matrix was write-only), with storage canonicalized on `Role` declaration order after measurement showed `Collectors.toMap` over `Role` keys yields different orders across JVM runs. Serialized under one additive `governance` key. **Still open:** §3.3's Governance *evidence* class — governance still cannot assign or override a role, which was register entry §2's original motivation. `RolePrecedence` has no notion of authorship (a governance declaration would lose to a naming heuristic) and `Evidence` models only what was observed, so this needs its own decision, is a measurement change, and collides with gated OQ-05. Guarded by `GovernanceBoundaryTest`. | 25 |
+| OQ-04 | Per-subsystem layer matrices | BLOCKED on deciding how a subsystem is identified at all (OQ-02's half is delivered: `GovernancePolicy.layerPolicy` is the component to extend, additively) | — | 26 |
+| OQ-06 | Cycle entropy scope below the whole graph | BLOCKED on OQ-04's subsystem concept. Also now owns finding (A) below: whether a dimension's relation scope is governable at all | — | 27 |
 
 ## Tier 3 — governance-facing risk
 
 | OQ | Question | Status | Decision | Increment |
 |---|---|---|---|---|
-| OQ-09 | Approved exceptions and persistence findings | BLOCKED on OQ-02 | — | 28 |
-| OQ-15 | Invariant aggregation `E_inv` | BLOCKED on OQ-02 | — | 29 |
+| OQ-09 | Approved exceptions and persistence findings | OPEN — unblocked by increment 25; `GovernancePolicy` is the surface an exception would be declared on | — | 28 |
+| OQ-15 | Invariant aggregation `E_inv` | OPEN — unblocked by increment 25; still blocked on invariants carrying no weight (blocker 2 below), so λ_k has nowhere to live | — | 29 |
 | OQ-14 | Drift-aware risk model `R` | BLOCKED on OQ-15 | — | 30 |
 | OQ-16 | Unified governance-facing view | BLOCKED on OQ-14 | — | 31 |
 
@@ -84,3 +84,18 @@ speculation, and they change what the affected items can even mean:
    YAML/JSON/properties parsing dependency or resource loading exists in
    any module; `PipelineConfig` is the entire governance surface. A
    declarative format would be new infrastructure, not a refactor.
+   *Still true after increment 25* — that increment named and grouped the
+   governance surface, it did not make it declarative.
+
+## Findings recorded by increment 25, deferred to a named owner
+
+Each is guarded by a test in `GovernanceBoundaryTest` or
+`GovernanceReportEndToEndTest`, so it is reopened deliberately rather
+than discovered by accident.
+
+| # | Finding | Owner |
+|---|---|---|
+| A | **Relation scope is not governable.** Which relations each dimension measures over is composed by `Pipeline` from public, documented calculator factories citing §6.3's worked example. Decided as *measurement definition* fixed by §4 — not hidden, not a default, and not introduced by increment 25. Making it configurable is a policy input, and `DimensionConfidence` reads the same set, so one wrong plumb would move layer entropy and three confidences at once. | OQ-06 (increment 27) |
+| B | **`EntropySnapshot` carries no governance identity**, so comparing a stored baseline against a current scan is only sound if policy was identical, and nothing in the data says whether it was — a policy change can read as code drift. Increment 25 delivered the enabling half: a `PipelineReport` now carries the policy it was measured under, so a caller storing a baseline has something to store. Fixing the rest forces "what does `Drift.compute` do when the two policies differ?", which is drift semantics. | OQ-14 (increment 30) |
+| C | **Concern selection is fused into the detection catalog.** Which code pattern signals a concern is engineering; which concerns an organization cares about is arguably governance. One interface does both. Separating them would filter the security opportunity denominator, making it a policy input. | OQ-10 / a future security-model decision |
+| D | **An invariant's predicates are not serialized.** `GovernanceJson` emits name, scope, severity and referenced metric names only; there is no `Predicate` serializer anywhere, and writing one means designing the invariant DSL's textual form, which v0.4 leaves unimplemented. The `governance` key is therefore explicitly partial, and a governance hash was rejected for exactly this reason. | OQ-11's DSL half / GOV-02 |

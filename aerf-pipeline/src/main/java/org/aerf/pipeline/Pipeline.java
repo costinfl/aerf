@@ -19,7 +19,6 @@ import org.aerf.analysis.role.IterativeRoleInferenceEngine;
 import org.aerf.analysis.role.IterativeRoleInferenceResult;
 import org.aerf.analysis.role.RoleInferenceResult;
 import org.aerf.analysis.role.SeedRoleInferenceEngine;
-import org.aerf.extraction.ExtractionRequest;
 import org.aerf.extraction.ExtractionResult;
 import org.aerf.extraction.GraphAssembler;
 import org.aerf.model.Edge;
@@ -63,12 +62,11 @@ public final class Pipeline {
     public static PipelineReport run(PipelineConfig config) {
         Objects.requireNonNull(config, "config");
 
-        ExtractionResult extraction = new JavaSourceExtractor()
-                .extract(new ExtractionRequest(config.sourceRoots(), config.classpath()));
+        ExtractionResult extraction = new JavaSourceExtractor().extract(config.extraction());
         Graph extractedGraph = new GraphAssembler().assemble(extraction);
 
         IterativeRoleInferenceEngine roleEngine = new IterativeRoleInferenceEngine(
-                new SeedRoleInferenceEngine(config.seedRules()), config.refinementRules());
+                new SeedRoleInferenceEngine(config.detection().seedRules()), config.detection().refinementRules());
         IterativeRoleInferenceResult roleResult = roleEngine.infer(extractedGraph);
         Graph graph = applyRoles(extractedGraph, roleResult);
 
@@ -79,11 +77,13 @@ public final class Pipeline {
         // per-dimension confidence lives here rather than being re-derived
         // by a caller that would have to guess at it.
         LayerEntropyCalculator layerCalculator =
-                LayerEntropyCalculator.withCallAndDependsRelations(config.layerPolicy());
+                LayerEntropyCalculator.withCallAndDependsRelations(config.governance().layerPolicy());
         CycleEntropyCalculator cycleCalculator =
-                CycleEntropyCalculator.withCallAndDependsRelations(config.includeSelfCyclesInCycleEntropy());
+                CycleEntropyCalculator.withCallAndDependsRelations(
+                        config.governance().includeSelfCyclesInCycleEntropy());
         PersistenceEntropyCalculator persistenceCalculator = PersistenceEntropyCalculator.withCallRelation();
-        SecurityEntropyCalculator securityCalculator = new SecurityEntropyCalculator(config.securityRules());
+        SecurityEntropyCalculator securityCalculator =
+                new SecurityEntropyCalculator(config.detection().securityRules());
 
         LayerEntropyResult layerEntropy = layerCalculator.compute(graph);
         CycleEntropyResult cycleEntropy = cycleCalculator.compute(graph);
@@ -101,7 +101,8 @@ public final class Pipeline {
                 "cycle", cycleEntropy.value(),
                 "persistence", persistenceEntropy.value(),
                 "security", securityEntropy.value());
-        OptionalDouble totalEntropy = AggregatedEntropy.compute(config.calibrationProfile(), dimensionValues);
+        OptionalDouble totalEntropy =
+                AggregatedEntropy.compute(config.governance().calibrationProfile(), dimensionValues);
         OptionalDouble maturity = Maturity.compute(totalEntropy);
         Optional<MaturityLevel> maturityLevel = maturity.isPresent()
                 ? Optional.of(MaturityLevel.classify(maturity.getAsDouble()))
@@ -112,7 +113,7 @@ public final class Pipeline {
         Map<String, Double> metricsForInvariants = graphScopeMetrics(totalEntropy);
         List<InvariantEvaluationResult> invariantResults = new ArrayList<>();
         List<String> skippedInvariants = new ArrayList<>();
-        for (Invariant invariant : config.invariants()) {
+        for (Invariant invariant : config.governance().invariants()) {
             if (metricsForInvariants.keySet().containsAll(invariant.referencedMetricNames())) {
                 invariantResults.add(invariantEvaluator.evaluate(invariant, graph, metricsForInvariants));
             } else {
@@ -131,7 +132,7 @@ public final class Pipeline {
             }
         }
 
-        return new PipelineReport(graph, roleResult.passes(), layerEntropy, cycleEntropy, persistenceEntropy,
+        return new PipelineReport(config.governance(), graph, roleResult.passes(), layerEntropy, cycleEntropy, persistenceEntropy,
                 securityEntropy, totalEntropy, maturity, maturityLevel, confidence, confidenceByDimension,
                 List.copyOf(invariantResults), List.copyOf(skippedInvariants), extraction.diagnostics());
     }

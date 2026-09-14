@@ -1,6 +1,8 @@
 package org.aerf.pipeline;
 
 import org.aerf.analysis.calibration.CalibrationProfile;
+import org.aerf.analysis.detection.DetectionCatalog;
+import org.aerf.analysis.governance.GovernancePolicy;
 import org.aerf.analysis.calibration.LinearCalibration;
 import org.aerf.analysis.calibration.WeightedDimension;
 import org.aerf.analysis.invariant.InvariantEvaluationResult;
@@ -12,6 +14,7 @@ import org.aerf.analysis.role.seed.DefaultSeedRules;
 import org.aerf.extraction.JavaNodeIds;
 import org.aerf.model.Node;
 import org.aerf.model.NodeId;
+import org.aerf.extraction.ExtractionRequest;
 import org.aerf.model.Role;
 import org.junit.jupiter.api.Test;
 
@@ -71,16 +74,33 @@ class PipelineTest {
                 new WeightedDimension("persistence", 1.0 / 3.0, new LinearCalibration()),
                 new WeightedDimension("security", 0.0, new LinearCalibration())));
 
+        return config(calibrationProfile, layerPolicy);
+    }
+
+    /**
+     * {@link #config()} with one governance component substituted. A test
+     * that needs a different calibration profile builds it this way
+     * rather than re-listing every other component: before Increment 25
+     * the only way to vary one input was to re-splat all nine positionally,
+     * two of which were both {@code List<Path>} and adjacent.
+     */
+    static PipelineConfig config(CalibrationProfile calibrationProfile) {
+        return config(calibrationProfile, config().governance().layerPolicy());
+    }
+
+    private static PipelineConfig config(CalibrationProfile calibrationProfile, LayerPolicy layerPolicy) {
         return new PipelineConfig(
-                List.of(defectSampleRoot()),
-                List.of(),
-                DefaultSeedRules.illustrativeRules(),
-                DefaultGraphRefinementRules.illustrativeRules(),
-                layerPolicy,
-                false,
-                DefaultSecurityRules.illustrativeRules(),
-                calibrationProfile,
-                List.of(SpecWorkedExamples.noPresentationToPersistence(), SpecWorkedExamples.entropyBudget(0.35)));
+                new ExtractionRequest(List.of(defectSampleRoot()), List.of()),
+                new DetectionCatalog(
+                        DefaultSeedRules.illustrativeRules(),
+                        DefaultGraphRefinementRules.illustrativeRules(),
+                        DefaultSecurityRules.illustrativeRules()),
+                new GovernancePolicy(
+                        layerPolicy,
+                        false,
+                        calibrationProfile,
+                        List.of(SpecWorkedExamples.noPresentationToPersistence(),
+                                SpecWorkedExamples.entropyBudget(0.35))));
     }
 
     @Test
@@ -104,11 +124,7 @@ class PipelineTest {
                 new WeightedDimension("cycle", 0.25, new LinearCalibration()),
                 new WeightedDimension("persistence", 0.25, new LinearCalibration()),
                 new WeightedDimension("security", 0.25, new LinearCalibration())));
-        PipelineConfig baseConfig = config();
-        PipelineConfig config = new PipelineConfig(
-                baseConfig.sourceRoots(), baseConfig.classpath(), baseConfig.seedRules(),
-                baseConfig.refinementRules(), baseConfig.layerPolicy(), baseConfig.includeSelfCyclesInCycleEntropy(),
-                baseConfig.securityRules(), calibrationProfileWithSecurityWeighted, baseConfig.invariants());
+        PipelineConfig config = config(calibrationProfileWithSecurityWeighted);
 
         PipelineReport report = Pipeline.run(config);
 
