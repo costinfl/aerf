@@ -4,8 +4,8 @@ import org.aerf.analysis.calibration.CalibrationProfile;
 import org.aerf.analysis.calibration.LinearCalibration;
 import org.aerf.analysis.calibration.WeightedDimension;
 import org.aerf.analysis.governance.GovernancePolicy;
-import org.aerf.analysis.governance.SubsystemLayerPolicies;
-import org.aerf.analysis.governance.SubsystemLayerPolicy;
+import org.aerf.analysis.governance.Subsystems;
+import org.aerf.analysis.governance.Subsystem;
 import org.aerf.analysis.invariant.Invariant;
 import org.aerf.analysis.invariant.Predicate;
 import org.aerf.analysis.invariant.Scope;
@@ -161,7 +161,7 @@ class GovernanceJsonTest {
         // not the absence of one - the same reason a zero-weighted
         // dimension is serialized rather than dropped.
         assertTrue(JsonWriter.write(GovernanceJson.policy(governance(policy())))
-                .contains("\"subsystemLayerPolicies\":[]"));
+                .contains("\"subsystems\":[]"));
     }
 
     @Test
@@ -172,13 +172,13 @@ class GovernanceJsonTest {
 
         String json = JsonWriter.write(GovernanceJson.policy(new GovernancePolicy(
                 policy(),
-                SubsystemLayerPolicies.of(List.of(
-                        new SubsystemLayerPolicy("shipping", "com.example.shipping", legacy),
-                        new SubsystemLayerPolicy("billing", "com.example.billing", policy()))),
+                Subsystems.of(List.of(
+                        Subsystem.withLayerPolicy("shipping", "com.example.shipping", legacy),
+                        Subsystem.withLayerPolicy("billing", "com.example.billing", policy()))),
                 false, profile(), List.of())));
 
         assertTrue(json.contains(
-                "\"subsystemLayerPolicies\":["
+                "\"subsystems\":["
                         + "{\"name\":\"shipping\",\"idPrefix\":\"com.example.shipping\","
                         + "\"layerPolicy\":{\"knownRoles\":[\"PRESENTATION\",\"PERSISTENCE\"],"
                         + "\"allowedTargets\":{\"PRESENTATION\":[\"PERSISTENCE\"]}}},"
@@ -195,11 +195,27 @@ class GovernanceJsonTest {
         // understood without the config that produced it.
         String json = JsonWriter.write(GovernanceJson.policy(new GovernancePolicy(
                 policy(),
-                SubsystemLayerPolicies.of(List.of(
-                        new SubsystemLayerPolicy("billing", "com.example.billing", policy()))),
+                Subsystems.of(List.of(
+                        Subsystem.withLayerPolicy("billing", "com.example.billing", policy()))),
                 false, profile(), List.of())));
 
         assertTrue(json.contains("\"name\":\"billing\""), json);
         assertTrue(json.contains("\"idPrefix\":\"com.example.billing\""), json);
+    }
+
+    @Test
+    void aSubsystemWithNoMatrixSerializesLayerPolicyAsNull() {
+        // Increment 27: a subsystem may scope the cycle measurement while
+        // declaring no matrix of its own, in which case the default one
+        // judges its nodes. Null, not an empty matrix - those mean
+        // different things.
+        String json = JsonWriter.write(GovernanceJson.policy(new GovernancePolicy(
+                policy(),
+                Subsystems.of(List.of(Subsystem.of("billing", "com.example.billing"))),
+                false, profile(), List.of())));
+
+        assertTrue(json.contains(
+                "\"subsystems\":[{\"name\":\"billing\",\"idPrefix\":\"com.example.billing\","
+                        + "\"layerPolicy\":null}]"), json);
     }
 }

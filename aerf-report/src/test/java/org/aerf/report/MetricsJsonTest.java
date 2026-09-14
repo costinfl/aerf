@@ -1,6 +1,8 @@
 package org.aerf.report;
 
 import org.aerf.analysis.metrics.cycle.CycleEntropyCalculator;
+import org.aerf.analysis.metrics.cycle.CycleEntropyResult;
+import org.aerf.analysis.metrics.cycle.SubsystemCycleEntropy;
 import org.aerf.analysis.metrics.layer.LayerEntropyCalculator;
 import org.aerf.analysis.metrics.layer.LayerPolicy;
 import org.aerf.analysis.metrics.persistence.PersistenceEntropyCalculator;
@@ -85,5 +87,46 @@ class MetricsJsonTest {
 
         assertTrue(json.contains("\"concern\":\"xss\""));
         assertTrue(json.contains("\"weaknessDetected\":true"));
+    }
+
+    @Test
+    void declaringNoSubsystemsEmitsAnEmptyBySubsystemArray() {
+        String json = JsonWriter.write(MetricsJson.cycleEntropy(
+                new CycleEntropyResult(3, List.of(Set.of(NodeId.of("a"), NodeId.of("b"))))));
+
+        assertTrue(json.contains("\"bySubsystem\":[]"), json);
+        assertTrue(json.contains("\"value\":0.6666666666666666"),
+                "the graph-wide value is untouched by scoping: " + json);
+    }
+
+    @Test
+    void anUnmeasurableSubsystemSerializesAsNullNotZero() {
+        // OQ-06: a subsystem claiming no node in this graph has no reading
+        // at all, which a reader must be able to tell apart from a
+        // measured 0.0 meaning it has nodes and none are in a cycle.
+        String json = JsonWriter.write(MetricsJson.cycleEntropy(new CycleEntropyResult(
+                2, List.of(), List.of(
+                        new SubsystemCycleEntropy("measured-acyclic", 2, Set.of()),
+                        new SubsystemCycleEntropy("claims-nothing", 0, Set.of())))));
+
+        assertTrue(json.contains("\"subsystem\":\"measured-acyclic\",\"value\":0.0"), json);
+        assertTrue(json.contains("\"subsystem\":\"claims-nothing\",\"value\":null"), json);
+    }
+
+    @Test
+    void scopedReadingsSerializeInDeclarationOrderWithTheirParticipatingNodes() {
+        String json = JsonWriter.write(MetricsJson.cycleEntropy(new CycleEntropyResult(
+                4, List.of(Set.of(NodeId.of("com.example.billing.Invoice"))), List.of(
+                        new SubsystemCycleEntropy("billing", 2, Set.of(NodeId.of("com.example.billing.Invoice"))),
+                        new SubsystemCycleEntropy("shipping", 2, Set.of())))));
+
+        assertTrue(json.contains(
+                // counts serialize as doubles: this writer has one number
+                // type, as the committed sample reports already show.
+                "\"bySubsystem\":[{\"subsystem\":\"billing\",\"value\":0.5,\"totalNodeCount\":2.0,"
+                        + "\"participatingNodeCount\":1.0,"
+                        + "\"participatingNodes\":[\"com.example.billing.Invoice\"]},"
+                        + "{\"subsystem\":\"shipping\",\"value\":0.0,\"totalNodeCount\":2.0,"
+                        + "\"participatingNodeCount\":0.0,\"participatingNodes\":[]}]"), json);
     }
 }

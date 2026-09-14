@@ -29,9 +29,9 @@ public class SubsystemDemo {
 
         GovernancePolicy withSubsystems = new GovernancePolicy(
                 g.layerPolicy(),
-                SubsystemLayerPolicies.of(List.of(
-                        new SubsystemLayerPolicy("owner", PKG + "owner", strict),
-                        new SubsystemLayerPolicy("vet", PKG + "vet", legacy))),
+                Subsystems.of(List.of(
+                        Subsystem.withLayerPolicy("owner", PKG + "owner", strict),
+                        Subsystem.withLayerPolicy("vet", PKG + "vet", legacy))),
                 g.includeSelfCyclesInCycleEntropy(), g.calibrationProfile(), g.invariants());
 
         PipelineReport r = Pipeline.run(

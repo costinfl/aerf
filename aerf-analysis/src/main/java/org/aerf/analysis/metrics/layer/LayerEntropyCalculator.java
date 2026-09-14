@@ -1,8 +1,8 @@
 package org.aerf.analysis.metrics.layer;
 
 import org.aerf.analysis.calibration.DimensionConfidence;
-import org.aerf.analysis.governance.SubsystemLayerPolicies;
-import org.aerf.analysis.governance.SubsystemLayerPolicy;
+import org.aerf.analysis.governance.Subsystem;
+import org.aerf.analysis.governance.Subsystems;
 import org.aerf.model.Edge;
 import org.aerf.model.Graph;
 import org.aerf.model.Node;
@@ -52,17 +52,17 @@ import java.util.Set;
 public final class LayerEntropyCalculator {
 
     private final LayerPolicy defaultPolicy;
-    private final SubsystemLayerPolicies subsystemPolicies;
+    private final Subsystems subsystems;
     private final Set<RelationType> relevantRelations;
 
     public LayerEntropyCalculator(LayerPolicy defaultPolicy, Set<RelationType> relevantRelations) {
-        this(defaultPolicy, SubsystemLayerPolicies.none(), relevantRelations);
+        this(defaultPolicy, Subsystems.none(), relevantRelations);
     }
 
-    public LayerEntropyCalculator(LayerPolicy defaultPolicy, SubsystemLayerPolicies subsystemPolicies,
+    public LayerEntropyCalculator(LayerPolicy defaultPolicy, Subsystems subsystems,
                                   Set<RelationType> relevantRelations) {
         this.defaultPolicy = Objects.requireNonNull(defaultPolicy, "defaultPolicy");
-        this.subsystemPolicies = Objects.requireNonNull(subsystemPolicies, "subsystemPolicies");
+        this.subsystems = Objects.requireNonNull(subsystems, "subsystems");
         this.relevantRelations = Set.copyOf(Objects.requireNonNull(relevantRelations, "relevantRelations"));
     }
 
@@ -82,9 +82,9 @@ public final class LayerEntropyCalculator {
      * judges an edge, never which edges are in scope.
      */
     public static LayerEntropyCalculator withCallAndDependsRelations(
-            LayerPolicy defaultPolicy, SubsystemLayerPolicies subsystemPolicies) {
+            LayerPolicy defaultPolicy, Subsystems subsystems) {
         return new LayerEntropyCalculator(
-                defaultPolicy, subsystemPolicies, EnumSet.of(RelationType.CALL, RelationType.DEPENDS));
+                defaultPolicy, subsystems, EnumSet.of(RelationType.CALL, RelationType.DEPENDS));
     }
 
     /**
@@ -128,14 +128,15 @@ public final class LayerEntropyCalculator {
 
     /**
      * The matrix judging an edge, chosen by its source. Falls back to the
-     * default for a node no subsystem claims — and {@code
-     * SubsystemLayerPolicies} guarantees at most one claimant, so this is
-     * independent of declaration order.
+     * default for a node no subsystem claims, and equally for a node in a
+     * subsystem that declared no matrix of its own (Increment 27). {@code
+     * Subsystems} guarantees at most one claimant, so this is independent
+     * of declaration order.
      */
     private LayerPolicy governingPolicy(NodeRef source) {
         if (source instanceof NodeRef.Resolved resolved) {
-            return subsystemPolicies.governing(resolved.id())
-                    .map(SubsystemLayerPolicy::layerPolicy)
+            return subsystems.governing(resolved.id())
+                    .flatMap(Subsystem::layerPolicy)
                     .orElse(defaultPolicy);
         }
         return defaultPolicy;

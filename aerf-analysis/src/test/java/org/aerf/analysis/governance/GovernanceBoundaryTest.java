@@ -78,40 +78,61 @@ class GovernanceBoundaryTest {
     }
 
     @Test
-    void subsystemDeclarationReachesLayerPolicyOnly() {
+    void thereIsExactlyOneSubsystemDeclarationServingBothScopedDimensions() {
         // Increment 25 pinned that no scope-shaped component existed at
         // all, because OQ-04 and OQ-06 both needed one and neither could
         // begin until it was decided how a subsystem is identified.
-        // Increment 26 answered that for OQ-04 - a subsystem is a
-        // governance-declared id prefix - so the pin narrows rather than
-        // disappears: subsystem declaration is allowed to reach the layer
-        // matrix, and nothing else.
+        // Increment 26 answered that for OQ-04 and Increment 27 for OQ-06,
+        // so the pin narrows again rather than disappearing: there is one
+        // subsystems component, not one per dimension. Two lists could put
+        // the same node in different subsystems depending on which metric
+        // was asking.
         assertEquals(
-                List.of("layerPolicy", "subsystemLayerPolicies", "includeSelfCyclesInCycleEntropy",
+                List.of("layerPolicy", "subsystems", "includeSelfCyclesInCycleEntropy",
                         "calibrationProfile", "invariants"),
                 Arrays.stream(GovernancePolicy.class.getRecordComponents())
                         .map(RecordComponent::getName).toList());
     }
 
     @Test
-    void cycleEntropyScopeIsStillOneGlobalChoiceSoOq06RemainsUndecided() {
-        // The half Increment 26 must not answer as a side effect. Whether
-        // cycle entropy can be scoped below the whole graph - and whether
-        // it should reuse OQ-04's subsystem concept at all - is OQ-06's
-        // decision, and section 4.2's self-cycle choice is still a single
-        // global boolean until it makes one.
-        RecordComponent cycleScope = Arrays.stream(GovernancePolicy.class.getRecordComponents())
+    void governanceCannotDeclareACycleIrrelevantSoOq06sToleranceHalfRemainsOpen() {
+        // Increment 27 answered OQ-06's measurement half: cycle entropy is
+        // now reported per declared subsystem beside the graph-wide value.
+        // This pin narrows to the half it did NOT answer - the original
+        // register's motivation, "tolerate cycles within one module while
+        // forbidding them across module boundaries". That is a relevance
+        // policy, not a scope: it would change section 4.2's own
+        // definition of which SCCs count rather than extend governance
+        // configuration, and no repository in this project's evidence base
+        // contains a cycle at all to calibrate it against.
+        //
+        // Section 4.2's one named lever on cycle relevance is the
+        // self-cycle choice, and it stays a single global boolean.
+        RecordComponent selfCycleChoice = Arrays.stream(GovernancePolicy.class.getRecordComponents())
                 .filter(c -> c.getName().equals("includeSelfCyclesInCycleEntropy"))
                 .findFirst()
                 .orElseThrow();
 
-        assertEquals(boolean.class, cycleScope.getType(),
-                "a scoped cycle policy here means OQ-06 was answered without a decision record");
+        assertEquals(boolean.class, selfCycleChoice.getType(),
+                "a per-subsystem self-cycle policy would be a second relevance lever, undecided");
         for (RecordComponent component : GovernancePolicy.class.getRecordComponents()) {
             String name = component.getName().toLowerCase(Locale.ROOT);
-            assertFalse(name.contains("cycle") && name.contains("subsystem"),
-                    "cycle entropy gained subsystem scope as a side effect of OQ-04: " + component);
+            assertFalse(name.contains("tolerat") || name.contains("cycleRelevance".toLowerCase(Locale.ROOT)),
+                    "a cycle-tolerance policy means OQ-06's second half was answered without a record: "
+                            + component);
         }
+    }
+
+    @Test
+    void scopingCycleEntropyDidNotMakeTheGraphWideMeasurementOptional() {
+        // Section 4.2 defines E_C over the whole graph. Increment 27 adds
+        // readings beside it and must never replace it, so CycleEntropyResult
+        // keeps a non-optional graph-wide value.
+        assertEquals(int.class,
+                Arrays.stream(org.aerf.analysis.metrics.cycle.CycleEntropyResult.class.getRecordComponents())
+                        .filter(c -> c.getName().equals("totalNodeCount"))
+                        .findFirst().orElseThrow().getType(),
+                "the graph-wide denominator is still every node in the graph");
     }
 
     @Test

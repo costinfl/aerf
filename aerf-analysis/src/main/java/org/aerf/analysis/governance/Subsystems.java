@@ -10,9 +10,13 @@ import java.util.Optional;
 import java.util.Set;
 
 /**
- * Every {@link SubsystemLayerPolicy} an organization has declared, in
- * declaration order, validated so that exactly one of them can ever
- * claim a given node (Increment 26, OQ-04).
+ * Every {@link Subsystem} an organization has declared, in declaration
+ * order, validated so that exactly one of them can ever claim a given
+ * node (Increment 26, OQ-04; extended to cycle entropy in Increment 27,
+ * OQ-06).
+ *
+ * <p>This is the single declaration both scoped dimensions read, so a
+ * node's subsystem cannot depend on which metric is asking.
  *
  * <p><b>Overlapping selectors are rejected, not resolved.</b> Declaring
  * both {@code com.foo} and {@code com.foo.bar} throws at construction
@@ -34,29 +38,29 @@ import java.util.Set;
  * — byte-for-byte the behaviour that existed before OQ-04, on the same
  * code path rather than a parallel one.
  */
-public final class SubsystemLayerPolicies {
+public final class Subsystems {
 
-    private static final SubsystemLayerPolicies NONE = new SubsystemLayerPolicies(List.of());
+    private static final Subsystems NONE = new Subsystems(List.of());
 
-    private final List<SubsystemLayerPolicy> declared;
+    private final List<Subsystem> declared;
 
-    private SubsystemLayerPolicies(List<SubsystemLayerPolicy> declared) {
+    private Subsystems(List<Subsystem> declared) {
         this.declared = List.copyOf(Objects.requireNonNull(declared, "declared"));
         validateNamesAreUnique(this.declared);
         validateNoPrefixClaimsAnother(this.declared);
     }
 
-    public static SubsystemLayerPolicies of(List<SubsystemLayerPolicy> declared) {
-        return new SubsystemLayerPolicies(declared);
+    public static Subsystems of(List<Subsystem> declared) {
+        return new Subsystems(declared);
     }
 
     /** No subsystem declared: one matrix governs everything. */
-    public static SubsystemLayerPolicies none() {
+    public static Subsystems none() {
         return NONE;
     }
 
     /** In declaration order — the organization's own, never re-sorted. */
-    public List<SubsystemLayerPolicy> declared() {
+    public List<Subsystem> declared() {
         return declared;
     }
 
@@ -69,9 +73,9 @@ public final class SubsystemLayerPolicies {
      * which case the caller applies the default matrix. Construction
      * guarantees at most one match, so this is order-independent.
      */
-    public Optional<SubsystemLayerPolicy> governing(NodeId id) {
+    public Optional<Subsystem> governing(NodeId id) {
         Objects.requireNonNull(id, "id");
-        for (SubsystemLayerPolicy candidate : declared) {
+        for (Subsystem candidate : declared) {
             if (candidate.matches(id)) {
                 return Optional.of(candidate);
             }
@@ -79,10 +83,10 @@ public final class SubsystemLayerPolicies {
         return Optional.empty();
     }
 
-    private static void validateNamesAreUnique(List<SubsystemLayerPolicy> declared) {
+    private static void validateNamesAreUnique(List<Subsystem> declared) {
         Set<String> seen = new HashSet<>();
         List<String> duplicates = new ArrayList<>();
-        for (SubsystemLayerPolicy policy : declared) {
+        for (Subsystem policy : declared) {
             if (!seen.add(policy.name())) {
                 duplicates.add(policy.name());
             }
@@ -92,9 +96,9 @@ public final class SubsystemLayerPolicies {
         }
     }
 
-    private static void validateNoPrefixClaimsAnother(List<SubsystemLayerPolicy> declared) {
-        for (SubsystemLayerPolicy one : declared) {
-            for (SubsystemLayerPolicy other : declared) {
+    private static void validateNoPrefixClaimsAnother(List<Subsystem> declared) {
+        for (Subsystem one : declared) {
+            for (Subsystem other : declared) {
                 if (one == other) {
                     continue;
                 }

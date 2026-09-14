@@ -1,7 +1,7 @@
 package org.aerf.analysis.metrics.layer;
 
-import org.aerf.analysis.governance.SubsystemLayerPolicies;
-import org.aerf.analysis.governance.SubsystemLayerPolicy;
+import org.aerf.analysis.governance.Subsystems;
+import org.aerf.analysis.governance.Subsystem;
 import org.aerf.model.Graph;
 import org.aerf.model.Node;
 import org.aerf.model.NodeId;
@@ -59,7 +59,7 @@ class LayerEntropyCalculatorSubsystemTest {
         LayerEntropyResult withoutSubsystems =
                 LayerEntropyCalculator.withCallAndDependsRelations(STRICT).compute(graph);
         LayerEntropyResult withEmptyDeclaration = LayerEntropyCalculator
-                .withCallAndDependsRelations(STRICT, SubsystemLayerPolicies.none()).compute(graph);
+                .withCallAndDependsRelations(STRICT, Subsystems.none()).compute(graph);
 
         assertEquals(withoutSubsystems.relevantEdges(), withEmptyDeclaration.relevantEdges());
         assertEquals(withoutSubsystems.violatingEdges(), withEmptyDeclaration.violatingEdges());
@@ -73,9 +73,9 @@ class LayerEntropyCalculatorSubsystemTest {
         // The whole point of OQ-04: the same edge shape, violating in one
         // subsystem and tolerated in another.
         LayerEntropyResult result = LayerEntropyCalculator
-                .withCallAndDependsRelations(STRICT, SubsystemLayerPolicies.of(List.of(
-                        new SubsystemLayerPolicy("strict-era", "com.example.billing", STRICT),
-                        new SubsystemLayerPolicy("legacy-era", "com.example.shipping", LEGACY))))
+                .withCallAndDependsRelations(STRICT, Subsystems.of(List.of(
+                        Subsystem.withLayerPolicy("strict-era", "com.example.billing", STRICT),
+                        Subsystem.withLayerPolicy("legacy-era", "com.example.shipping", LEGACY))))
                 .compute(twoSubsystems());
 
         assertEquals(2, result.relevantEdges().size(), "both calls remain measurable");
@@ -89,8 +89,8 @@ class LayerEntropyCalculatorSubsystemTest {
     @Test
     void aNodeInNoDeclaredSubsystemIsGovernedByTheDefaultMatrix() {
         LayerEntropyResult result = LayerEntropyCalculator
-                .withCallAndDependsRelations(LEGACY, SubsystemLayerPolicies.of(List.of(
-                        new SubsystemLayerPolicy("strict-era", "com.example.billing", STRICT))))
+                .withCallAndDependsRelations(LEGACY, Subsystems.of(List.of(
+                        Subsystem.withLayerPolicy("strict-era", "com.example.billing", STRICT))))
                 .compute(twoSubsystems());
 
         assertEquals(2, result.relevantEdges().size());
@@ -114,20 +114,20 @@ class LayerEntropyCalculatorSubsystemTest {
                         ref("com.example.shipping.CrateRepository"), RelationType.CALL, List.of())
                 .build();
 
-        SubsystemLayerPolicy strictBilling = new SubsystemLayerPolicy("billing", "com.example.billing", STRICT);
-        SubsystemLayerPolicy legacyShipping = new SubsystemLayerPolicy("shipping", "com.example.shipping", LEGACY);
+        Subsystem strictBilling = Subsystem.withLayerPolicy("billing", "com.example.billing", STRICT);
+        Subsystem legacyShipping = Subsystem.withLayerPolicy("shipping", "com.example.shipping", LEGACY);
 
         assertEquals(OptionalDouble.of(1.0), LayerEntropyCalculator
                         .withCallAndDependsRelations(LEGACY,
-                                SubsystemLayerPolicies.of(List.of(strictBilling, legacyShipping)))
+                                Subsystems.of(List.of(strictBilling, legacyShipping)))
                         .compute(graph).value(),
                 "the source's strict matrix judges it, not the target's permissive one");
 
         assertEquals(OptionalDouble.of(0.0), LayerEntropyCalculator
                         .withCallAndDependsRelations(STRICT,
-                                SubsystemLayerPolicies.of(List.of(
-                                        new SubsystemLayerPolicy("billing", "com.example.billing", LEGACY),
-                                        new SubsystemLayerPolicy("shipping", "com.example.shipping", STRICT))))
+                                Subsystems.of(List.of(
+                                        Subsystem.withLayerPolicy("billing", "com.example.billing", LEGACY),
+                                        Subsystem.withLayerPolicy("shipping", "com.example.shipping", STRICT))))
                         .compute(graph).value(),
                 "and symmetrically: a permissive source tolerates it however strict the target is");
     }
@@ -145,9 +145,9 @@ class LayerEntropyCalculatorSubsystemTest {
                 .build();
 
         LayerEntropyResult result = LayerEntropyCalculator
-                .withCallAndDependsRelations(STRICT, SubsystemLayerPolicies.of(List.of(
-                        new SubsystemLayerPolicy("billing", "com.example.billing", STRICT),
-                        new SubsystemLayerPolicy("shipping", "com.example.shipping", STRICT))))
+                .withCallAndDependsRelations(STRICT, Subsystems.of(List.of(
+                        Subsystem.withLayerPolicy("billing", "com.example.billing", STRICT),
+                        Subsystem.withLayerPolicy("shipping", "com.example.shipping", STRICT))))
                 .compute(graph);
 
         assertEquals(1, result.relevantEdges().size(),
@@ -164,8 +164,8 @@ class LayerEntropyCalculatorSubsystemTest {
                 Map.of(Role.PRESENTATION, Set.of(Role.PRESENTATION, Role.APPLICATION)));
 
         LayerEntropyResult result = LayerEntropyCalculator
-                .withCallAndDependsRelations(STRICT, SubsystemLayerPolicies.of(List.of(
-                        new SubsystemLayerPolicy("billing", "com.example.billing", knowsNoPersistence))))
+                .withCallAndDependsRelations(STRICT, Subsystems.of(List.of(
+                        Subsystem.withLayerPolicy("billing", "com.example.billing", knowsNoPersistence))))
                 .compute(twoSubsystems());
 
         assertEquals(1, result.relevantEdges().size(),
@@ -183,17 +183,17 @@ class LayerEntropyCalculatorSubsystemTest {
 
         assertEquals(
                 LayerEntropyCalculator.withCallAndDependsRelations(STRICT).confidence(graph),
-                LayerEntropyCalculator.withCallAndDependsRelations(STRICT, SubsystemLayerPolicies.of(List.of(
-                        new SubsystemLayerPolicy("billing", "com.example.billing", LEGACY)))).confidence(graph));
+                LayerEntropyCalculator.withCallAndDependsRelations(STRICT, Subsystems.of(List.of(
+                        Subsystem.withLayerPolicy("billing", "com.example.billing", LEGACY)))).confidence(graph));
     }
 
     @Test
     void noOrderingDerivedFallbackIsIntroduced() {
         // OQ-04's acceptance: "no ordering-derived fallback is silently
         // introduced". A subsystem without a declared matrix is
-        // unrepresentable - SubsystemLayerPolicy requires one - and
+        // unrepresentable - Subsystem requires one - and
         // nothing here builds a matrix from a role ordering.
-        assertEquals(3, SubsystemLayerPolicy.class.getRecordComponents().length);
+        assertEquals(3, Subsystem.class.getRecordComponents().length);
         for (Method method : LayerEntropyCalculator.class.getDeclaredMethods()) {
             for (Class<?> parameter : method.getParameterTypes()) {
                 assertFalse(List.class.isAssignableFrom(parameter),
@@ -225,5 +225,23 @@ class LayerEntropyCalculatorSubsystemTest {
 
     private static NodeRef ref(String id) {
         return NodeRef.resolved(NodeId.of(id));
+    }
+
+    @Test
+    void aSubsystemDeclaredWithoutAMatrixIsJudgedByTheDefaultOne() {
+        // Increment 27 made the matrix optional so cycle scoping could
+        // reuse the same declarations. A subsystem that declares only
+        // identity must behave exactly as an unclaimed node does here.
+        LayerEntropyResult result = LayerEntropyCalculator
+                .withCallAndDependsRelations(STRICT, Subsystems.of(List.of(
+                        Subsystem.of("billing", "com.example.billing"),
+                        Subsystem.withLayerPolicy("shipping", "com.example.shipping", LEGACY))))
+                .compute(twoSubsystems());
+
+        assertEquals(2, result.relevantEdges().size());
+        assertEquals(1, result.violatingEdges().size(),
+                "billing has no matrix so the strict default judges it; shipping's own legacy matrix tolerates its call");
+        assertEquals(NodeRef.resolved(NodeId.of("com.example.billing.InvoiceController")),
+                result.violatingEdges().get(0).source());
     }
 }

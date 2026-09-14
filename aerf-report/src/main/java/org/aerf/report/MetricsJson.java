@@ -1,6 +1,7 @@
 package org.aerf.report;
 
 import org.aerf.analysis.metrics.cycle.CycleEntropyResult;
+import org.aerf.analysis.metrics.cycle.SubsystemCycleEntropy;
 import org.aerf.analysis.metrics.layer.LayerEntropyResult;
 import org.aerf.analysis.metrics.persistence.PersistenceEntropyResult;
 import org.aerf.analysis.metrics.security.SecurityEntropyResult;
@@ -42,6 +43,27 @@ public final class MetricsJson {
                 .put("totalNodeCount", result.totalNodeCount())
                 .put("participatingNodeCount", result.participatingNodes().size())
                 .put("relevantSccs", sccs)
+                .put("bySubsystem", JsonSupport.array(result.bySubsystem(), MetricsJson::subsystemCycleEntropy))
+                .build();
+    }
+
+    /**
+     * One subsystem's scoped cycle entropy (OQ-06), beside — never in
+     * place of — the graph-wide value above. An empty array means no
+     * subsystem was declared.
+     *
+     * <p>{@code value} is JSON {@code null} for a subsystem claiming no
+     * node in this graph: that subsystem was not measurable here, which a
+     * reader must be able to tell apart from a measured {@code 0.0}
+     * meaning it has nodes and none of them are in a cycle.
+     */
+    private static JsonValue subsystemCycleEntropy(SubsystemCycleEntropy scoped) {
+        return new JsonObjectBuilder()
+                .put("subsystem", scoped.subsystem())
+                .put("value", JsonSupport.optionalDouble(scoped.value()))
+                .put("totalNodeCount", scoped.totalNodeCount())
+                .put("participatingNodeCount", scoped.participatingNodes().size())
+                .put("participatingNodes", nodeIdSet(scoped.participatingNodes()))
                 .build();
     }
 

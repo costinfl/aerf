@@ -78,10 +78,11 @@ public final class Pipeline {
         // by a caller that would have to guess at it.
         LayerEntropyCalculator layerCalculator =
                 LayerEntropyCalculator.withCallAndDependsRelations(
-                        config.governance().layerPolicy(), config.governance().subsystemLayerPolicies());
+                        config.governance().layerPolicy(), config.governance().subsystems());
         CycleEntropyCalculator cycleCalculator =
                 CycleEntropyCalculator.withCallAndDependsRelations(
-                        config.governance().includeSelfCyclesInCycleEntropy());
+                        config.governance().includeSelfCyclesInCycleEntropy(),
+                        config.governance().subsystems());
         PersistenceEntropyCalculator persistenceCalculator = PersistenceEntropyCalculator.withCallRelation();
         SecurityEntropyCalculator securityCalculator =
                 new SecurityEntropyCalculator(config.detection().securityRules());

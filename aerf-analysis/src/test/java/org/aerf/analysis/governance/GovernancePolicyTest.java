@@ -29,7 +29,7 @@ class GovernancePolicyTest {
         // "No hidden default governance policy is introduced" (OQ-02's
         // acceptance) enforced by the compiler and these checks rather
         // than by documentation: there is nowhere for a default to hide.
-        SubsystemLayerPolicies none = SubsystemLayerPolicies.none();
+        Subsystems none = Subsystems.none();
         assertThrows(NullPointerException.class,
                 () -> new GovernancePolicy(null, none, false, profile(), List.of()));
         assertThrows(NullPointerException.class,

@@ -16,21 +16,21 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * Increment 26 (OQ-04): a subsystem is governance-declared, and its
  * membership test never interprets a node id.
  */
-class SubsystemLayerPolicyTest {
+class SubsystemTest {
 
     @Test
     void everyPartOfTheDeclarationIsRequired() {
-        assertThrows(NullPointerException.class, () -> new SubsystemLayerPolicy(null, "com.example", policy()));
-        assertThrows(NullPointerException.class, () -> new SubsystemLayerPolicy("billing", null, policy()));
-        assertThrows(NullPointerException.class, () -> new SubsystemLayerPolicy("billing", "com.example", null));
-        assertThrows(IllegalArgumentException.class, () -> new SubsystemLayerPolicy(" ", "com.example", policy()));
+        assertThrows(NullPointerException.class, () -> Subsystem.withLayerPolicy(null, "com.example", policy()));
+        assertThrows(NullPointerException.class, () -> Subsystem.withLayerPolicy("billing", null, policy()));
+        assertThrows(NullPointerException.class, () -> Subsystem.withLayerPolicy("billing", "com.example", null));
+        assertThrows(IllegalArgumentException.class, () -> Subsystem.withLayerPolicy(" ", "com.example", policy()));
     }
 
     @Test
     void aBlankPrefixIsRejectedBecauseItWouldSilentlyClaimEveryNode() {
         // An empty prefix matches every id, making this subsystem's matrix
         // the universal one and shadowing the default without saying so.
-        assertThrows(IllegalArgumentException.class, () -> new SubsystemLayerPolicy("everything", "", policy()));
+        assertThrows(IllegalArgumentException.class, () -> Subsystem.withLayerPolicy("everything", "", policy()));
     }
 
     @Test
@@ -40,7 +40,7 @@ class SubsystemLayerPolicyTest {
         // operation on any string - nothing is parsed, split or given
         // meaning here. The prefix's meaning is the declaring
         // organization's, not AERF's.
-        SubsystemLayerPolicy billing = new SubsystemLayerPolicy("billing", "com.example.billing", policy());
+        Subsystem billing = Subsystem.withLayerPolicy("billing", "com.example.billing", policy());
 
         assertTrue(billing.matches(NodeId.of("com.example.billing.InvoiceService")));
         assertFalse(billing.matches(NodeId.of("com.example.shipping.CrateService")));
@@ -53,19 +53,40 @@ class SubsystemLayerPolicyTest {
         // id starts with its declaring type's id - which is why declaring a
         // package prefix picks up that package's methods too, without this
         // class knowing anything about Java.
-        SubsystemLayerPolicy billing = new SubsystemLayerPolicy("billing", "com.example.billing", policy());
+        Subsystem billing = Subsystem.withLayerPolicy("billing", "com.example.billing", policy());
 
         assertTrue(billing.matches(NodeId.of("com.example.billing.InvoiceService#total(java.lang.Long)")));
     }
 
     @Test
     void aPrefixMatchesTheIdItIsIdenticalTo() {
-        SubsystemLayerPolicy exact = new SubsystemLayerPolicy("one-node", "com.example.Lonely", policy());
+        Subsystem exact = Subsystem.withLayerPolicy("one-node", "com.example.Lonely", policy());
 
         assertTrue(exact.matches(NodeId.of("com.example.Lonely")));
     }
 
     private static LayerPolicy policy() {
         return LayerPolicy.of(Set.of(Role.PRESENTATION), Map.of(Role.PRESENTATION, Set.of(Role.PRESENTATION)));
+    }
+
+    @Test
+    void aSubsystemMayBeDeclaredWithoutALayerMatrixOfItsOwn() {
+        // Increment 27: cycle entropy is a second consumer and needs the
+        // identity without a matrix, so an organization scoping cycles is
+        // not forced to invent a layering matrix it does not want.
+        Subsystem identityOnly = Subsystem.of("billing", "com.example.billing");
+
+        assertTrue(identityOnly.layerPolicy().isEmpty());
+        assertTrue(identityOnly.matches(NodeId.of("com.example.billing.InvoiceService")),
+                "it still claims nodes - that is what scopes the cycle measurement");
+    }
+
+    @Test
+    void aSubsystemWithAMatrixCarriesItAndRejectsANullOne() {
+        Subsystem withMatrix = Subsystem.withLayerPolicy("billing", "com.example.billing", policy());
+
+        assertTrue(withMatrix.layerPolicy().isPresent());
+        assertThrows(NullPointerException.class,
+                () -> Subsystem.withLayerPolicy("billing", "com.example.billing", null));
     }
 }

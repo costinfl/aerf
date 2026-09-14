@@ -2,7 +2,7 @@ package org.aerf.report;
 
 import org.aerf.analysis.calibration.WeightedDimension;
 import org.aerf.analysis.governance.GovernancePolicy;
-import org.aerf.analysis.governance.SubsystemLayerPolicy;
+import org.aerf.analysis.governance.Subsystem;
 import org.aerf.analysis.invariant.Invariant;
 import org.aerf.analysis.metrics.layer.LayerPolicy;
 import org.aerf.model.Role;
@@ -46,8 +46,8 @@ public final class GovernanceJson {
     public static JsonValue policy(GovernancePolicy governance) {
         return new JsonObjectBuilder()
                 .put("layerPolicy", layerPolicy(governance.layerPolicy()))
-                .put("subsystemLayerPolicies", JsonSupport.array(
-                        governance.subsystemLayerPolicies().declared(), GovernanceJson::subsystemLayerPolicy))
+                .put("subsystems", JsonSupport.array(
+                        governance.subsystems().declared(), GovernanceJson::subsystem))
                 .put("includeSelfCyclesInCycleEntropy", governance.includeSelfCyclesInCycleEntropy())
                 .put("calibration", JsonSupport.array(
                         governance.calibrationProfile().dimensions(), GovernanceJson::weightedDimension))
@@ -73,16 +73,22 @@ public final class GovernanceJson {
     }
 
     /**
-     * One subsystem's declaration (OQ-04), in the order it was declared.
-     * An organization that declared none emits an empty array rather than
-     * nothing at all: choosing a single matrix for the whole graph is a
-     * governance decision, not the absence of one.
+     * One subsystem's declaration (OQ-04, extended by OQ-06), in the order
+     * it was declared. An organization that declared none emits an empty
+     * array rather than nothing at all: choosing a single matrix for the
+     * whole graph is a governance decision, not the absence of one.
+     *
+     * <p>{@code layerPolicy} is JSON {@code null} for a subsystem that
+     * declared none — it scopes the cycle measurement but is judged by the
+     * default matrix, which is a different thing from an empty matrix.
      */
-    private static JsonValue subsystemLayerPolicy(SubsystemLayerPolicy subsystem) {
+    private static JsonValue subsystem(Subsystem subsystem) {
         return new JsonObjectBuilder()
                 .put("name", subsystem.name())
                 .put("idPrefix", subsystem.idPrefix())
-                .put("layerPolicy", layerPolicy(subsystem.layerPolicy()))
+                .put("layerPolicy", subsystem.layerPolicy()
+                        .map(GovernanceJson::layerPolicy)
+                        .orElse(JsonValue.JsonNull.INSTANCE))
                 .build();
     }
 

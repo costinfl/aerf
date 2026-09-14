@@ -13,11 +13,25 @@ import java.util.Set;
  * graph. {@code relevantSccs} holds the actual participating strongly
  * connected components, not just a count, so a finding stays traceable
  * to the specific nodes forming each cycle.
+ *
+ * <p>{@code bySubsystem} carries the same measurement scoped to each
+ * declared subsystem (Increment 27, OQ-06), in declaration order, and is
+ * empty when no subsystem was declared. It sits <em>beside</em>
+ * {@link #value()}, which always remains the graph-wide figure section
+ * 4.2 defines — scoping adds a reading, it never replaces one.
  */
-public record CycleEntropyResult(int totalNodeCount, List<Set<NodeId>> relevantSccs) {
+public record CycleEntropyResult(
+        int totalNodeCount,
+        List<Set<NodeId>> relevantSccs,
+        List<SubsystemCycleEntropy> bySubsystem) {
+
+    public CycleEntropyResult(int totalNodeCount, List<Set<NodeId>> relevantSccs) {
+        this(totalNodeCount, relevantSccs, List.of());
+    }
 
     public CycleEntropyResult {
         relevantSccs = relevantSccs.stream().map(Set::copyOf).toList();
+        bySubsystem = List.copyOf(java.util.Objects.requireNonNull(bySubsystem, "bySubsystem"));
     }
 
     /** The union of every relevant SCC's nodes. */

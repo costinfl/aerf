@@ -32,20 +32,30 @@ import java.util.Objects;
  *
  * <p>{@link #layerPolicy()} is the <b>default</b> layering matrix: the
  * one governing any node no declared subsystem claims. Increment 26
- * (OQ-04) added {@link #subsystemLayerPolicies()} beside it, so an
- * organization can give a subsystem that evolved in a different era its
- * own matrix. Declaring none leaves the default governing everything,
- * which is exactly the behaviour that existed before — on the same code
- * path, not a parallel one.
+ * (OQ-04) added {@link #subsystems()} beside it, so an organization can
+ * give a subsystem that evolved in a different era its own matrix.
+ * Declaring none leaves the default governing everything, which is
+ * exactly the behaviour that existed before — on the same code path, not
+ * a parallel one.
+ *
+ * <p>{@link #subsystems()} serves cycle entropy too since Increment 27
+ * (OQ-06), which reports a value per declared subsystem alongside the
+ * unchanged global one. One declaration, two scoped dimensions — so a
+ * node's subsystem never depends on which metric is asking.
  *
  * <p>What this type deliberately does <em>not</em> carry, each for a
  * recorded reason (see {@code docs/increment-25-*.md} and
  * {@code docs/increment-26-*.md}):
  * <ul>
- *   <li><b>Any cycle-entropy scope.</b> {@link #includeSelfCyclesInCycleEntropy()}
- *       is still one global choice. OQ-06 extends that component, and
- *       whether cycle scope should reuse OQ-04's subsystem concept is
- *       its decision to make, not a side effect of this one.
+ *   <li><b>Any cycle-tolerance policy.</b> Governance can scope the
+ *       cycle <em>measurement</em> (Increment 27), but cannot declare a
+ *       cycle relevant or not — e.g. tolerating one confined to a single
+ *       subsystem. That would change section 4.2's own definition of
+ *       relevance rather than extend governance configuration, and no
+ *       repository in this project's evidence base contains a cycle at
+ *       all to calibrate such a policy against.
+ *       {@link #includeSelfCyclesInCycleEntropy()} remains section 4.2's
+ *       one named lever on cycle relevance, and stays global.
  *   <li><b>Any role assignment.</b> Section 3.3's fourth evidence class,
  *       Governance — an organization declaring a node's role outright —
  *       remains unimplemented. That is the other half of OQ-02 and stays
@@ -58,14 +68,14 @@ import java.util.Objects;
  */
 public record GovernancePolicy(
         LayerPolicy layerPolicy,
-        SubsystemLayerPolicies subsystemLayerPolicies,
+        Subsystems subsystems,
         boolean includeSelfCyclesInCycleEntropy,
         CalibrationProfile calibrationProfile,
         List<Invariant> invariants) {
 
     public GovernancePolicy {
         Objects.requireNonNull(layerPolicy, "layerPolicy");
-        Objects.requireNonNull(subsystemLayerPolicies, "subsystemLayerPolicies");
+        Objects.requireNonNull(subsystems, "subsystems");
         Objects.requireNonNull(calibrationProfile, "calibrationProfile");
         invariants = List.copyOf(Objects.requireNonNull(invariants, "invariants"));
     }
@@ -73,7 +83,7 @@ public record GovernancePolicy(
     /**
      * The common case: one layering matrix for the whole graph, no
      * subsystem declared. Identical to passing
-     * {@link SubsystemLayerPolicies#none()}, and named so that declaring
+     * {@link Subsystems#none()}, and named so that declaring
      * no subsystems reads as the decision it is.
      */
     public static GovernancePolicy withOneLayerMatrix(
@@ -81,7 +91,7 @@ public record GovernancePolicy(
             boolean includeSelfCyclesInCycleEntropy,
             CalibrationProfile calibrationProfile,
             List<Invariant> invariants) {
-        return new GovernancePolicy(layerPolicy, SubsystemLayerPolicies.none(),
+        return new GovernancePolicy(layerPolicy, Subsystems.none(),
                 includeSelfCyclesInCycleEntropy, calibrationProfile, invariants);
     }
 }

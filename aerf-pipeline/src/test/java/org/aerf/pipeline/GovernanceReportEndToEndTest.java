@@ -2,8 +2,8 @@ package org.aerf.pipeline;
 
 import org.aerf.analysis.calibration.EntropySnapshot;
 import org.aerf.analysis.governance.GovernancePolicy;
-import org.aerf.analysis.governance.SubsystemLayerPolicies;
-import org.aerf.analysis.governance.SubsystemLayerPolicy;
+import org.aerf.analysis.governance.Subsystems;
+import org.aerf.analysis.governance.Subsystem;
 import org.aerf.analysis.metrics.layer.LayerPolicy;
 import org.aerf.model.Role;
 import org.aerf.report.json.JsonWriter;
@@ -113,8 +113,8 @@ class GovernanceReportEndToEndTest {
                 base.extraction(), base.detection(),
                 new GovernancePolicy(
                         governance.layerPolicy(),
-                        SubsystemLayerPolicies.of(List.of(
-                                new SubsystemLayerPolicy("everything", "com", permissive))),
+                        Subsystems.of(List.of(
+                                Subsystem.withLayerPolicy("everything", "com", permissive))),
                         governance.includeSelfCyclesInCycleEntropy(),
                         governance.calibrationProfile(), governance.invariants())));
 
@@ -135,6 +135,6 @@ class GovernanceReportEndToEndTest {
     void declaringNoSubsystemsLeavesTheReportSayingSoExplicitly() {
         String json = JsonWriter.write(Main.toJson(Pipeline.run(PipelineTest.config())));
 
-        assertTrue(json.contains("\"subsystemLayerPolicies\":[]"), json);
+        assertTrue(json.contains("\"subsystems\":[]"), json);
     }
 }
