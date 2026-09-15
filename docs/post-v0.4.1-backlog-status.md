@@ -50,7 +50,7 @@ this phase is **0.2.0-SNAPSHOT**.
 | OQ | Question | Status | Decision | Increment |
 |---|---|---|---|---|
 | OQ-09 | Approved exceptions and persistence findings | **DECIDED / IMPLEMENTED** | **An approved exception is an acceptance of a finding, never a denial of it, and it changes no measured value.** Answering the commission's fifth bullet precisely: suppression affects **governance presentation alone** — not entropy, not the finding lists, not risk. Decisive reason: drift is already implemented, so an exception that lowered `E_P` would register as *code improvement* against a stored baseline. `ApprovedException(target, reason, approvedBy)` requires all three — an exception without a justification or an owner is an unexplained hole. `ExceptionTarget` is `OfNode`/`OfEdge` by **exact id, never prefix** (unlike `Subsystem`: an exception is a narrow admission about one reviewed finding). Excusal is computed **downstream of every calculator** by `ApprovedExceptionEvaluator` into an `ExceptionLedger`, so no metric gains an "excused" bucket and measurement-neutrality is *structural* — no calculator was modified at all. Evidence is untouched by force as well as by choice: its contract models only what was observed, with a live tripwire. Unmatched exceptions are reported, following `skippedInvariants`. Demonstrated on real code: legacy petclinic's genuine N+1 excused with `E_P` unmoved at 0.125 and the finding still listed in full. **Deferred:** cycle findings (an SCC is a *set*) and GRAPH-scope violations (nothing addressable), both guarded by test. | 28 |
-| OQ-15 | Invariant aggregation `E_inv` | OPEN — unblocked by increment 25; still blocked on invariants carrying no weight (blocker 2 below), so λ_k has nowhere to live | — | 29 |
+| OQ-15 | Invariant aggregation `E_inv` | **DECIDED / IMPLEMENTED** | **λ_k lives beside the invariant, not inside it.** `InvariantWeights` is a governance declaration mirroring `CalibrationProfile`; `Invariant` — §6.3's rule — is untouched, and deriving λ_k from `severity` was rejected because that would assert through the back door the closed taxonomy `Invariant`'s javadoc deliberately refuses. **`E_inv` is a plain unbounded sum, exactly as §6.1 states** — §5.1 constrains entropy weights with `Σw_d = 1` and §6.1 states no such constraint, so inventing one would assert what v0.4 declines to. The consequence is pinned, not left implicit: **`E_inv` is not an entropy dimension** and never enters `totalEntropy`, `maturity` or drift, asserted end to end. Undefined semantics are `AggregatedEntropy`'s own, transplanted: a *skipped* invariant produced no `I_k` at all, so nonzero λ_k makes `E_inv` undefined and λ_k = 0 is exempt — coercing a missing indicator to 0 would claim the invariant holds where it was never checked. Declared weights **must cover every configured invariant**, since an unweighted one is a hidden default through which a violation could vanish. Every λ_k·I_k term is reported beside the total, which is what makes "no violation disappears through aggregation" structural. Demonstrated on petclinic: `E_inv` = 1.0 with `totalEntropy` unchanged. | 29 |
 | OQ-14 | Drift-aware risk model `R` | BLOCKED on OQ-15 | — | 30 |
 | OQ-16 | Unified governance-facing view | BLOCKED on OQ-14 | — | 31 |
 
@@ -72,9 +72,12 @@ speculation, and they change what the affected items can even mean:
    module field, and while `NodeType.MODULE` is declared, the extractor
    never emits one. OQ-04 and OQ-06 both presuppose subsystem membership,
    so identifying a subsystem is itself a decision that must precede them.
-2. **No invariant carries a weight.** `Invariant` has a free-text
-   `severity` and nothing numeric, so `E_inv`'s `lambda_k` (OQ-15) has
-   nowhere to live yet.
+2. ~~**No invariant carries a weight.**~~ **RESOLVED by increment 29.**
+   λ_k now lives in `InvariantWeights`, a governance declaration beside
+   the invariant rather than a field on it — mirroring how an entropy
+   dimension's weight lives in `CalibrationProfile`. `Invariant` itself
+   is unchanged, and `severity` remains free text, independent of λ_k and
+   still used in no computation.
 3. **A security concern is unreachable from the invariant DSL.**
    `PropertyKey` has exactly eight constants and `InvariantEvaluator`
    never receives a `SecurityEntropyResult`, so OQ-11's stated motivation
@@ -87,7 +90,7 @@ speculation, and they change what the affected items can even mean:
    *Still true after increment 25* — that increment named and grouped the
    governance surface, it did not make it declarative.
 
-## Findings recorded by increments 25-28, deferred to a named owner
+## Findings recorded by increments 25-29, deferred to a named owner
 
 Each is guarded by a test in `GovernanceBoundaryTest` or
 `GovernanceReportEndToEndTest`, so it is reopened deliberately rather
@@ -107,3 +110,5 @@ than discovered by accident.
 | J | **Cycle findings and GRAPH-scope invariant violations cannot be excused.** A relevant SCC is a *set* of nodes, so excusing one must first decide whether naming a member excuses the whole cycle and what a partially-excused cycle means for a node-scoped ratio; a `ViolationSubject.OfGraph` names nothing an approver could address. Guarded by test. | a future decision, if evidence appears |
 | K | **Approved exceptions do not expire.** Nothing in AERF reads a clock, and "expired" needs semantics the risk model has not defined. A stale exception is visible only once it stops matching (`unmatched`); a *matched* exception may be years old and unreviewed, and the report cannot say so. | OQ-14 (increment 30) |
 | L | **Nothing consumes the exception ledger yet.** Increment 28 stops at making excusal observable; a risk model that counts unexcused rather than all findings is the intended consumer. | OQ-14 (increment 30) |
+| M | **`E_inv` is unbounded, so it is not comparable across configurations** and is not a drift-friendly quantity. §6.1 states no normalization constraint on λ_k and increment 29 honoured that rather than inventing one. A bounded companion would need that normalization decided as a recorded decision, not by quietly dividing. | OQ-14 (increment 30) |
+| N | **Nothing consumes `E_inv` yet.** Increment 29 stops at computing and reporting it; a risk model combining entropy, drift and violations is the intended consumer, joining finding L. | OQ-14 (increment 30) |

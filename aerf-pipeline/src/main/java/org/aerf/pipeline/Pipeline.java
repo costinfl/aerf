@@ -1,6 +1,8 @@
 package org.aerf.pipeline;
 
 import org.aerf.analysis.calibration.AggregatedEntropy;
+import org.aerf.analysis.calibration.AggregatedInvariants;
+import org.aerf.analysis.calibration.InvariantAggregate;
 import org.aerf.analysis.calibration.AnalysisConfidence;
 import org.aerf.analysis.calibration.Maturity;
 import org.aerf.analysis.governance.ApprovedExceptionEvaluator;
@@ -136,6 +138,12 @@ public final class Pipeline {
             }
         }
 
+        // Section 6.1's E_inv, computed from the results and skips the loop
+        // above already produced. Deliberately NOT fed into totalEntropy:
+        // it is an unbounded sum, not an entropy dimension.
+        InvariantAggregate invariantAggregate = AggregatedInvariants.compute(
+                config.governance().invariantWeights(), invariantResults, skippedInvariants);
+
         // Strictly downstream of every measurement: the ledger says which
         // findings governance has already accepted, and changes none of
         // them. See ApprovedExceptionEvaluator on why excusal lives here
@@ -144,7 +152,7 @@ public final class Pipeline {
                 config.governance().approvedExceptions(),
                 layerEntropy, persistenceEntropy, securityEntropy, invariantResults);
 
-        return new PipelineReport(config.governance(), exceptionLedger, graph, roleResult.passes(), layerEntropy, cycleEntropy, persistenceEntropy,
+        return new PipelineReport(config.governance(), exceptionLedger, invariantAggregate, graph, roleResult.passes(), layerEntropy, cycleEntropy, persistenceEntropy,
                 securityEntropy, totalEntropy, maturity, maturityLevel, confidence, confidenceByDimension,
                 List.copyOf(invariantResults), List.copyOf(skippedInvariants), extraction.diagnostics());
     }

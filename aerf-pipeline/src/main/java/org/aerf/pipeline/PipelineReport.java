@@ -1,6 +1,7 @@
 package org.aerf.pipeline;
 
 import org.aerf.analysis.calibration.EntropySnapshot;
+import org.aerf.analysis.calibration.InvariantAggregate;
 import org.aerf.analysis.calibration.MaturityLevel;
 import org.aerf.analysis.governance.ExceptionLedger;
 import org.aerf.analysis.governance.GovernancePolicy;
@@ -48,10 +49,18 @@ import java.util.OptionalDouble;
  * sits beside the measurements and alters none of them — every entropy
  * value above is what was measured, and every finding is still in its own
  * result list with its evidence intact.
+ *
+ * <p>{@link #invariantAggregate()} is §6.1's {@code E_inv} (Increment 29,
+ * OQ-15), with every {@code lambda_k * I_k} term that produced it. It is
+ * reported beside {@link #totalEntropy()} and never inside it: §6.1
+ * imposes no normalization on λ_k, so {@code E_inv} is unbounded and is
+ * not an entropy dimension. Entropy, drift and violations stay separately
+ * visible.
  */
 public record PipelineReport(
         GovernancePolicy governance,
         ExceptionLedger exceptionLedger,
+        InvariantAggregate invariantAggregate,
         Graph graph,
         int roleRefinementPasses,
         LayerEntropyResult layerEntropy,
@@ -70,6 +79,7 @@ public record PipelineReport(
     public PipelineReport {
         Objects.requireNonNull(governance, "governance");
         Objects.requireNonNull(exceptionLedger, "exceptionLedger");
+        Objects.requireNonNull(invariantAggregate, "invariantAggregate");
         Objects.requireNonNull(graph, "graph");
         Objects.requireNonNull(layerEntropy, "layerEntropy");
         Objects.requireNonNull(cycleEntropy, "cycleEntropy");

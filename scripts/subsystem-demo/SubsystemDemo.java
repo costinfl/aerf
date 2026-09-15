@@ -33,7 +33,7 @@ public class SubsystemDemo {
                         Subsystem.withLayerPolicy("owner", PKG + "owner", strict),
                         Subsystem.withLayerPolicy("vet", PKG + "vet", legacy))),
                 g.includeSelfCyclesInCycleEntropy(), g.calibrationProfile(), g.invariants(),
-                g.approvedExceptions());
+                g.invariantWeights(), g.approvedExceptions());
 
         PipelineReport r = Pipeline.run(
                 new PipelineConfig(base.extraction(), base.detection(), withSubsystems));

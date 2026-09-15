@@ -140,7 +140,7 @@ class CycleScopeEndToEndTest {
         GovernancePolicy g = base.governance();
         return new PipelineConfig(base.extraction(), base.detection(), new GovernancePolicy(
                 g.layerPolicy(), subsystems, g.includeSelfCyclesInCycleEntropy(),
-                g.calibrationProfile(), g.invariants(), g.approvedExceptions()));
+                g.calibrationProfile(), g.invariants(), g.invariantWeights(), g.approvedExceptions()));
     }
 
     private static Path cyclicSampleRoot() {

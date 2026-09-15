@@ -38,6 +38,14 @@ import java.util.Objects;
  * exactly the behaviour that existed before — on the same code path, not
  * a parallel one.
  *
+ * <p>{@link #invariantWeights()} (Increment 29, OQ-15) carries §6.1's
+ * {@code lambda_k}, the importance an organization attaches to each
+ * invariant, and produces {@code E_inv} beside the measurements.
+ * Declaring none leaves {@code E_inv} undefined rather than zero. The
+ * weight sits here rather than on {@link Invariant} for the same reason
+ * an entropy dimension's weight sits in {@code CalibrationProfile}: it is
+ * a governance choice about a rule, not a property of one.
+ *
  * <p>{@link #approvedExceptions()} (Increment 28, OQ-09) records the
  * findings an organization has looked at and decided to live with. It
  * changes no measured value and removes no finding: it produces an
@@ -79,6 +87,7 @@ public record GovernancePolicy(
         boolean includeSelfCyclesInCycleEntropy,
         CalibrationProfile calibrationProfile,
         List<Invariant> invariants,
+        InvariantWeights invariantWeights,
         ApprovedExceptions approvedExceptions) {
 
     public GovernancePolicy {
@@ -86,6 +95,7 @@ public record GovernancePolicy(
         Objects.requireNonNull(subsystems, "subsystems");
         Objects.requireNonNull(calibrationProfile, "calibrationProfile");
         invariants = List.copyOf(Objects.requireNonNull(invariants, "invariants"));
+        Objects.requireNonNull(invariantWeights, "invariantWeights");
         Objects.requireNonNull(approvedExceptions, "approvedExceptions");
     }
 
@@ -102,6 +112,6 @@ public record GovernancePolicy(
             List<Invariant> invariants) {
         return new GovernancePolicy(layerPolicy, Subsystems.none(),
                 includeSelfCyclesInCycleEntropy, calibrationProfile, invariants,
-                ApprovedExceptions.none());
+                InvariantWeights.none(), ApprovedExceptions.none());
     }
 }

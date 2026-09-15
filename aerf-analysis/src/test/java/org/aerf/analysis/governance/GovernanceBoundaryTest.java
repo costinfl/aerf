@@ -7,6 +7,11 @@ import org.aerf.model.RelationType;
 import org.aerf.model.Role;
 import org.junit.jupiter.api.Test;
 
+import org.aerf.analysis.calibration.AggregatedEntropy;
+import org.aerf.analysis.calibration.CalibrationProfile;
+import org.aerf.analysis.calibration.InvariantAggregate;
+import org.aerf.analysis.calibration.WeightedDimension;
+
 import java.lang.reflect.RecordComponent;
 import java.util.Arrays;
 import java.util.List;
@@ -14,6 +19,7 @@ import java.util.Locale;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * The negative half of Increment 25 (OQ-02): what {@link GovernancePolicy}
@@ -118,9 +124,34 @@ class GovernanceBoundaryTest {
         // was asking.
         assertEquals(
                 List.of("layerPolicy", "subsystems", "includeSelfCyclesInCycleEntropy",
-                        "calibrationProfile", "invariants", "approvedExceptions"),
+                        "calibrationProfile", "invariants", "invariantWeights", "approvedExceptions"),
                 Arrays.stream(GovernancePolicy.class.getRecordComponents())
                         .map(RecordComponent::getName).toList());
+    }
+
+    @Test
+    void einvIsNotAnEntropyDimension() {
+        // Increment 29 (OQ-15). Section 6.1 imposes no normalization on
+        // lambda_k, so E_inv is an unbounded sum, while section 5.1's
+        // aggregation assumes every E_d is in [0,1] and CalibrationProfile
+        // enforces sum(w_d) = 1. Feeding E_inv into that aggregation would
+        // silently break both, and would collapse governance violations
+        // into the single architecture score this project has consistently
+        // refused to produce.
+        for (RecordComponent component : InvariantAggregate.class.getRecordComponents()) {
+            assertFalse(component.getGenericType().getTypeName()
+                            .contains(CalibrationProfile.class.getName()),
+                    "E_inv must not be calibrated as an entropy dimension: " + component);
+        }
+        for (RecordComponent component : WeightedDimension.class.getRecordComponents()) {
+            String type = component.getGenericType().getTypeName();
+            assertFalse(type.contains("Invariant"),
+                    "an entropy dimension must not be an invariant in disguise: " + component);
+        }
+        assertTrue(Arrays.stream(AggregatedEntropy.class.getDeclaredMethods())
+                        .flatMap(m -> Arrays.stream(m.getParameterTypes()))
+                        .noneMatch(t -> t.getName().contains("Invariant")),
+                "AggregatedEntropy never takes an invariant input - E_inv is summed separately");
     }
 
     @Test

@@ -31,16 +31,19 @@ class GovernancePolicyTest {
         // than by documentation: there is nowhere for a default to hide.
         Subsystems none = Subsystems.none();
         ApprovedExceptions noExceptions = ApprovedExceptions.none();
+        InvariantWeights noWeights = InvariantWeights.none();
         assertThrows(NullPointerException.class,
-                () -> new GovernancePolicy(null, none, false, profile(), List.of(), noExceptions));
+                () -> new GovernancePolicy(null, none, false, profile(), List.of(), noWeights, noExceptions));
         assertThrows(NullPointerException.class,
-                () -> new GovernancePolicy(policy(), null, false, profile(), List.of(), noExceptions));
+                () -> new GovernancePolicy(policy(), null, false, profile(), List.of(), noWeights, noExceptions));
         assertThrows(NullPointerException.class,
-                () -> new GovernancePolicy(policy(), none, false, null, List.of(), noExceptions));
+                () -> new GovernancePolicy(policy(), none, false, null, List.of(), noWeights, noExceptions));
         assertThrows(NullPointerException.class,
-                () -> new GovernancePolicy(policy(), none, false, profile(), null, noExceptions));
+                () -> new GovernancePolicy(policy(), none, false, profile(), null, noWeights, noExceptions));
         assertThrows(NullPointerException.class,
-                () -> new GovernancePolicy(policy(), none, false, profile(), List.of(), null));
+                () -> new GovernancePolicy(policy(), none, false, profile(), List.of(), null, noExceptions));
+        assertThrows(NullPointerException.class,
+                () -> new GovernancePolicy(policy(), none, false, profile(), List.of(), noWeights, null));
     }
 
     @Test

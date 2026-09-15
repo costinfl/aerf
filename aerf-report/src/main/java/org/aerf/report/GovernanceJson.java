@@ -2,6 +2,7 @@ package org.aerf.report;
 
 import org.aerf.analysis.calibration.WeightedDimension;
 import org.aerf.analysis.governance.GovernancePolicy;
+import org.aerf.analysis.governance.WeightedInvariant;
 import org.aerf.analysis.governance.Subsystem;
 import org.aerf.analysis.invariant.Invariant;
 import org.aerf.analysis.metrics.layer.LayerPolicy;
@@ -52,6 +53,8 @@ public final class GovernanceJson {
                 .put("calibration", JsonSupport.array(
                         governance.calibrationProfile().dimensions(), GovernanceJson::weightedDimension))
                 .put("invariants", JsonSupport.array(governance.invariants(), GovernanceJson::invariant))
+                .put("invariantWeights", JsonSupport.array(
+                        governance.invariantWeights().declared(), GovernanceJson::weightedInvariant))
                 .put("approvedExceptions", JsonSupport.array(
                         governance.approvedExceptions().declared(), ExceptionJson::approvedException))
                 .build();
@@ -108,6 +111,18 @@ public final class GovernanceJson {
                 .put("dimension", dimension.name())
                 .put("weight", dimension.weight())
                 .put("function", dimension.calibration().name())
+                .build();
+    }
+
+    /**
+     * One invariant's declared importance (OQ-15). Emitted as an array
+     * even when empty: declaring no importances is a governance position,
+     * and it is why {@code E_inv} reads undefined rather than zero.
+     */
+    private static JsonValue weightedInvariant(WeightedInvariant weighted) {
+        return new JsonObjectBuilder()
+                .put("invariantName", weighted.invariantName())
+                .put("weight", weighted.weight())
                 .build();
     }
 
