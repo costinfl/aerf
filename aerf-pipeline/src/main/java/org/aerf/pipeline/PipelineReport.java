@@ -11,6 +11,7 @@ import org.aerf.analysis.metrics.cycle.CycleEntropyResult;
 import org.aerf.analysis.metrics.layer.LayerEntropyResult;
 import org.aerf.analysis.metrics.persistence.PersistenceEntropyResult;
 import org.aerf.analysis.metrics.security.SecurityEntropyResult;
+import org.aerf.analysis.view.GovernanceView;
 import org.aerf.model.Graph;
 
 import java.util.Collections;
@@ -160,5 +161,45 @@ public record PipelineReport(
     public EntropySnapshot toEntropySnapshot(String subjectId) {
         return new EntropySnapshot(subjectId, entropyByDimension(),
                 java.util.Optional.of(GovernanceFingerprint.of(governance())));
+    }
+
+    /**
+     * Composes this report into OQ-16's unified governance-facing view
+     * (Increment 31), answering three of the five commissioned questions:
+     * what architectural condition was observed, what governance
+     * constraints were violated, and what evidence supports each.
+     *
+     * <p>The other two — what changed relative to baseline, and what risk
+     * interpretation follows — are <em>not</em> silently omitted. The
+     * returned view names them in {@code unanswered()}, with the reason,
+     * because an empty drift section and a system that genuinely did not
+     * move would otherwise be indistinguishable. Supply a baseline via
+     * {@link #toGovernanceView(String, EntropySnapshot)} to answer them.
+     */
+    public GovernanceView toGovernanceView(String subjectId) {
+        return GovernanceViewAssembler.assemble(this, subjectId, Optional.empty());
+    }
+
+    /**
+     * As {@link #toGovernanceView(String)}, with all five questions
+     * answered against a caller-supplied baseline.
+     *
+     * <p>The baseline is a parameter for the same reason
+     * {@link org.aerf.analysis.calibration.Risk} is a pure function rather
+     * than a pipeline component (Increment 30): this pipeline has no prior
+     * measurement and deliberately does not reach into storage to get one.
+     * Drift and {@code R} are then computed by the existing pure functions
+     * unchanged, with {@code R} taking {@link #totalEntropy()} as this run
+     * already computed it, so the view's entropy term and this report's own
+     * number cannot disagree.
+     *
+     * <p>A baseline measured under a different governance policy — or one
+     * that records no policy at all — leaves {@code R} undefined with its
+     * reason stated, which the view surfaces. That refusal is
+     * {@code Risk}'s, not this method's.
+     */
+    public GovernanceView toGovernanceView(String subjectId, EntropySnapshot baseline) {
+        return GovernanceViewAssembler.assemble(
+                this, subjectId, Optional.of(Objects.requireNonNull(baseline, "baseline")));
     }
 }

@@ -53,7 +53,12 @@ public final class ExceptionJson {
                 .build();
     }
 
-    private static JsonValue target(ExceptionTarget target) {
+    /**
+     * Package-private since Increment 31: {@code GovernanceViewJson}
+     * serializes the same targets for its own findings, and one renderer
+     * keeps the ledger's shape and the view's identical.
+     */
+    static JsonValue target(ExceptionTarget target) {
         return switch (target) {
             case ExceptionTarget.OfNode ofNode -> new JsonObjectBuilder()
                     .put("kind", "node")

@@ -6,6 +6,7 @@ import org.aerf.analysis.governance.Subsystems;
 import org.aerf.model.Edge;
 import org.aerf.model.Graph;
 import org.aerf.model.Node;
+import org.aerf.model.NodeId;
 import org.aerf.model.NodeRef;
 import org.aerf.model.RelationType;
 import org.aerf.model.Role;
@@ -132,10 +133,18 @@ public final class LayerEntropyCalculator {
      * subsystem that declared no matrix of its own (Increment 27). {@code
      * Subsystems} guarantees at most one claimant, so this is independent
      * of declaration order.
+     *
+     * <p>Since Increment 31 the "which subsystem's matrix, if any" half is
+     * {@link Subsystems#governingMatrix(NodeId)}, so the governance view
+     * that reports <em>which</em> matrix judged a violation and this
+     * method that <em>applies</em> it read one rule rather than two
+     * copies. Choosing the source as the deciding endpoint stays here:
+     * that is Increment 26's measurement decision, not something
+     * {@code Subsystems} should know.
      */
     private LayerPolicy governingPolicy(NodeRef source) {
         if (source instanceof NodeRef.Resolved resolved) {
-            return subsystems.governing(resolved.id())
+            return subsystems.governingMatrix(resolved.id())
                     .flatMap(Subsystem::layerPolicy)
                     .orElse(defaultPolicy);
         }

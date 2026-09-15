@@ -11,6 +11,8 @@ import org.aerf.analysis.calibration.AggregatedEntropy;
 import org.aerf.analysis.calibration.CalibrationProfile;
 import org.aerf.analysis.calibration.InvariantAggregate;
 import org.aerf.analysis.calibration.WeightedDimension;
+import org.aerf.analysis.view.GovernanceView;
+import org.aerf.analysis.view.TraceableFinding;
 
 import java.lang.reflect.RecordComponent;
 import java.util.Arrays;
@@ -189,6 +191,69 @@ class GovernanceBoundaryTest {
             String type = component.getGenericType().getTypeName();
             assertFalse(type.contains("Invariant") || type.contains("Excused"),
                     "a risk assessment must not carry a violations term: " + component);
+        }
+    }
+
+    @Test
+    void theUnifiedViewProducesNoOverallVerdict() {
+        // Increment 31 (OQ-16). The commission forbids collapsing entropy,
+        // drift and violations into a single architecture score, so the
+        // view composes them and stops there: no pass/fail, no status, no
+        // ranking, and no score beyond the section 5.2 maturity v0.4
+        // itself defines.
+        //
+        // The second reason is the stronger one and is what this pin
+        // really protects: a threshold is an invariant the organization
+        // ALREADY declares - section 6.3's own entropy_budget example is
+        // exactly that - so a verdict computed here would be a second,
+        // hard-coded threshold competing with the declared one.
+        for (RecordComponent component : GovernanceView.class.getRecordComponents()) {
+            String type = component.getGenericType().getTypeName();
+            assertFalse(type.equals("boolean") || type.equals("java.lang.Boolean"),
+                    "a boolean on the view would be a verdict: " + component);
+            assertFalse(type.contains("Verdict") || type.contains("Status") || type.contains("Severity"),
+                    "the view reports; it does not judge: " + component);
+        }
+        assertTrue(Arrays.stream(GovernanceView.class.getRecordComponents())
+                        .map(RecordComponent::getGenericType)
+                        .map(java.lang.reflect.Type::getTypeName)
+                        .filter(type -> type.contains("MaturityLevel"))
+                        .count() == 1,
+                "maturityLevel is section 5.2's own classification and is the only graded value carried");
+    }
+
+    @Test
+    void theUnifiedViewNeitherNormalizesEinvNorTurnsItIntoAnEntropyDimension() {
+        // Finding M, re-recorded rather than resolved by increment 31.
+        // Section 6.1 imposes no normalization on lambda_k, so E_inv stays
+        // unbounded in the view too; bounding it to make a composite tidier
+        // would invent what v0.4 declines to state. The view carries the
+        // aggregate type itself, so no second "normalizedEinv" field can
+        // appear without this failing.
+        assertEquals(1, Arrays.stream(GovernanceView.class.getRecordComponents())
+                        .filter(c -> c.getGenericType().getTypeName().contains("InvariantAggregate"))
+                        .count(),
+                "exactly one E_inv is carried, and it is the one increment 29 computed");
+        assertTrue(Arrays.stream(AggregatedEntropy.class.getDeclaredMethods())
+                        .flatMap(m -> Arrays.stream(m.getParameterTypes()))
+                        .noneMatch(t -> t.getName().contains("GovernanceView")),
+                "composing a view never makes it an input to section 5.1's aggregation");
+    }
+
+    @Test
+    void theUnifiedViewTracesFindingsByIdentifierRatherThanCopyingEvidence() {
+        // Increment 31's traceability contract. Every finding's provenance
+        // is already serialized under the metric that produced it, so the
+        // view names its subject instead of duplicating the evidence -
+        // two copies of the same evidence can disagree, and only one of
+        // them is the measurement's own.
+        for (RecordComponent component : TraceableFinding.class.getRecordComponents()) {
+            assertFalse(component.getGenericType().getTypeName().contains("Evidence"),
+                    "a view finding references; it does not copy: " + component);
+        }
+        for (RecordComponent component : GovernanceView.class.getRecordComponents()) {
+            assertFalse(component.getGenericType().getTypeName().contains("org.aerf.model.Evidence"),
+                    "the view carries no evidence of its own: " + component);
         }
     }
 

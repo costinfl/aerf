@@ -83,6 +83,30 @@ public final class Subsystems {
         return Optional.empty();
     }
 
+    /**
+     * The subsystem whose <em>own layering matrix</em> judges a node, or
+     * empty when the default matrix does (Increment 31, OQ-16).
+     *
+     * <p>This is deliberately a different question from
+     * {@link #governing(NodeId)}, and the difference is the whole reason
+     * this method exists. A node claimed by a subsystem that declared no
+     * matrix of its own is <em>claimed</em> by that subsystem but
+     * <em>judged</em> by the default — so answering "which subsystem
+     * judged this violation?" with the claimant would name a declaration
+     * that had no part in the verdict.
+     *
+     * <p>{@code LayerEntropyCalculator} selects the judging matrix by
+     * exactly this rule and now calls this method to do it, so the
+     * attribution a reader sees and the matrix that actually produced the
+     * violation cannot drift apart. Increment 26 chose the source as the
+     * deciding endpoint; that choice lives in the calculator, since which
+     * endpoint to ask is a measurement question, while which matrix
+     * answers for a given node is this class's own.
+     */
+    public Optional<Subsystem> governingMatrix(NodeId id) {
+        return governing(id).filter(subsystem -> subsystem.layerPolicy().isPresent());
+    }
+
     private static void validateNamesAreUnique(List<Subsystem> declared) {
         Set<String> seen = new HashSet<>();
         List<String> duplicates = new ArrayList<>();
