@@ -19,9 +19,9 @@ class DriftTest {
 
     @Test
     void deltaIsCurrentMinusBaselinePerSection53() {
-        EntropySnapshot baseline = new EntropySnapshot("spring-petclinic",
+        EntropySnapshot baseline = EntropySnapshot.withoutGovernanceIdentity("spring-petclinic",
                 Map.of("layer", OptionalDouble.of(0.20)));
-        EntropySnapshot current = new EntropySnapshot("spring-petclinic",
+        EntropySnapshot current = EntropySnapshot.withoutGovernanceIdentity("spring-petclinic",
                 Map.of("layer", OptionalDouble.of(0.35)));
 
         Map<String, DimensionDrift> drift = Drift.compute(baseline, current);
@@ -34,8 +34,8 @@ class DriftTest {
 
     @Test
     void negativeDeltaMeansImprovement() {
-        EntropySnapshot baseline = new EntropySnapshot("p", Map.of("persistence", OptionalDouble.of(0.5)));
-        EntropySnapshot current = new EntropySnapshot("p", Map.of("persistence", OptionalDouble.of(0.1)));
+        EntropySnapshot baseline = EntropySnapshot.withoutGovernanceIdentity("p", Map.of("persistence", OptionalDouble.of(0.5)));
+        EntropySnapshot current = EntropySnapshot.withoutGovernanceIdentity("p", Map.of("persistence", OptionalDouble.of(0.1)));
 
         Map<String, DimensionDrift> drift = Drift.compute(baseline, current);
 
@@ -47,8 +47,8 @@ class DriftTest {
         // Section 14's "measurement before aggregation" principle, applied
         // to drift the same way it already applies to every entropy
         // result: the raw inputs stay visible, not just their difference.
-        EntropySnapshot baseline = new EntropySnapshot("p", Map.of("cycle", OptionalDouble.of(0.3)));
-        EntropySnapshot current = new EntropySnapshot("p", Map.of("cycle", OptionalDouble.of(0.3)));
+        EntropySnapshot baseline = EntropySnapshot.withoutGovernanceIdentity("p", Map.of("cycle", OptionalDouble.of(0.3)));
+        EntropySnapshot current = EntropySnapshot.withoutGovernanceIdentity("p", Map.of("cycle", OptionalDouble.of(0.3)));
 
         DimensionDrift result = Drift.compute(baseline, current).get("cycle");
 
@@ -59,8 +59,8 @@ class DriftTest {
 
     @Test
     void aDimensionUndefinedInTheBaselineContributesNoEntry() {
-        EntropySnapshot baseline = new EntropySnapshot("p", Map.of("security", OptionalDouble.empty()));
-        EntropySnapshot current = new EntropySnapshot("p", Map.of("security", OptionalDouble.of(0.2)));
+        EntropySnapshot baseline = EntropySnapshot.withoutGovernanceIdentity("p", Map.of("security", OptionalDouble.empty()));
+        EntropySnapshot current = EntropySnapshot.withoutGovernanceIdentity("p", Map.of("security", OptionalDouble.of(0.2)));
 
         Map<String, DimensionDrift> drift = Drift.compute(baseline, current);
 
@@ -69,8 +69,8 @@ class DriftTest {
 
     @Test
     void aDimensionUndefinedInTheCurrentMeasurementContributesNoEntry() {
-        EntropySnapshot baseline = new EntropySnapshot("p", Map.of("security", OptionalDouble.of(0.2)));
-        EntropySnapshot current = new EntropySnapshot("p", Map.of("security", OptionalDouble.empty()));
+        EntropySnapshot baseline = EntropySnapshot.withoutGovernanceIdentity("p", Map.of("security", OptionalDouble.of(0.2)));
+        EntropySnapshot current = EntropySnapshot.withoutGovernanceIdentity("p", Map.of("security", OptionalDouble.empty()));
 
         Map<String, DimensionDrift> drift = Drift.compute(baseline, current);
 
@@ -79,8 +79,8 @@ class DriftTest {
 
     @Test
     void aDimensionMissingFromTheBaselineEntirelyContributesNoEntry() {
-        EntropySnapshot baseline = new EntropySnapshot("p", Map.of("layer", OptionalDouble.of(0.1)));
-        EntropySnapshot current = new EntropySnapshot("p", Map.of(
+        EntropySnapshot baseline = EntropySnapshot.withoutGovernanceIdentity("p", Map.of("layer", OptionalDouble.of(0.1)));
+        EntropySnapshot current = EntropySnapshot.withoutGovernanceIdentity("p", Map.of(
                 "layer", OptionalDouble.of(0.2),
                 "cycle", OptionalDouble.of(0.4)));
 
@@ -92,8 +92,8 @@ class DriftTest {
 
     @Test
     void refusesToCompareMeasurementsOfDifferentSubjects() {
-        EntropySnapshot baseline = new EntropySnapshot("spring-petclinic", Map.of("layer", OptionalDouble.of(0.1)));
-        EntropySnapshot current = new EntropySnapshot("spring-framework-petclinic", Map.of("layer", OptionalDouble.of(0.2)));
+        EntropySnapshot baseline = EntropySnapshot.withoutGovernanceIdentity("spring-petclinic", Map.of("layer", OptionalDouble.of(0.1)));
+        EntropySnapshot current = EntropySnapshot.withoutGovernanceIdentity("spring-framework-petclinic", Map.of("layer", OptionalDouble.of(0.2)));
 
         IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
                 () -> Drift.compute(baseline, current));
@@ -103,11 +103,11 @@ class DriftTest {
 
     @Test
     void multipleDimensionsAreComputedIndependently() {
-        EntropySnapshot baseline = new EntropySnapshot("p", Map.of(
+        EntropySnapshot baseline = EntropySnapshot.withoutGovernanceIdentity("p", Map.of(
                 "layer", OptionalDouble.of(0.1),
                 "cycle", OptionalDouble.of(0.5),
                 "persistence", OptionalDouble.of(0.0)));
-        EntropySnapshot current = new EntropySnapshot("p", Map.of(
+        EntropySnapshot current = EntropySnapshot.withoutGovernanceIdentity("p", Map.of(
                 "layer", OptionalDouble.of(0.3),
                 "cycle", OptionalDouble.of(0.5),
                 "persistence", OptionalDouble.of(0.25)));

@@ -32,18 +32,21 @@ class GovernancePolicyTest {
         Subsystems none = Subsystems.none();
         ApprovedExceptions noExceptions = ApprovedExceptions.none();
         InvariantWeights noWeights = InvariantWeights.none();
+        DriftSensitivity noDrift = DriftSensitivity.none();
         assertThrows(NullPointerException.class,
-                () -> new GovernancePolicy(null, none, false, profile(), List.of(), noWeights, noExceptions));
+                () -> new GovernancePolicy(null, none, false, profile(), List.of(), noWeights, noDrift, noExceptions));
         assertThrows(NullPointerException.class,
-                () -> new GovernancePolicy(policy(), null, false, profile(), List.of(), noWeights, noExceptions));
+                () -> new GovernancePolicy(policy(), null, false, profile(), List.of(), noWeights, noDrift, noExceptions));
         assertThrows(NullPointerException.class,
-                () -> new GovernancePolicy(policy(), none, false, null, List.of(), noWeights, noExceptions));
+                () -> new GovernancePolicy(policy(), none, false, null, List.of(), noWeights, noDrift, noExceptions));
         assertThrows(NullPointerException.class,
-                () -> new GovernancePolicy(policy(), none, false, profile(), null, noWeights, noExceptions));
+                () -> new GovernancePolicy(policy(), none, false, profile(), null, noWeights, noDrift, noExceptions));
         assertThrows(NullPointerException.class,
-                () -> new GovernancePolicy(policy(), none, false, profile(), List.of(), null, noExceptions));
+                () -> new GovernancePolicy(policy(), none, false, profile(), List.of(), null, noDrift, noExceptions));
         assertThrows(NullPointerException.class,
-                () -> new GovernancePolicy(policy(), none, false, profile(), List.of(), noWeights, null));
+                () -> new GovernancePolicy(policy(), none, false, profile(), List.of(), noWeights, null, noExceptions));
+        assertThrows(NullPointerException.class,
+                () -> new GovernancePolicy(policy(), none, false, profile(), List.of(), noWeights, noDrift, null));
     }
 
     @Test

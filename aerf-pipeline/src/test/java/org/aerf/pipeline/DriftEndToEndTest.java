@@ -59,7 +59,7 @@ class DriftEndToEndTest {
         baselineValues.put("cycle", currentReport.cycleEntropy().value());
         baselineValues.put("persistence", OptionalDouble.of(0.0));
         baselineValues.put("security", OptionalDouble.empty());
-        EntropySnapshot baseline = new EntropySnapshot(SUBJECT_ID, baselineValues);
+        EntropySnapshot baseline = EntropySnapshot.withoutGovernanceIdentity(SUBJECT_ID, baselineValues);
 
         Map<String, DimensionDrift> drift = Drift.compute(baseline, current);
 

@@ -124,7 +124,8 @@ class GovernanceBoundaryTest {
         // was asking.
         assertEquals(
                 List.of("layerPolicy", "subsystems", "includeSelfCyclesInCycleEntropy",
-                        "calibrationProfile", "invariants", "invariantWeights", "approvedExceptions"),
+                        "calibrationProfile", "invariants", "invariantWeights", "driftSensitivity",
+                        "approvedExceptions"),
                 Arrays.stream(GovernancePolicy.class.getRecordComponents())
                         .map(RecordComponent::getName).toList());
     }
@@ -152,6 +153,43 @@ class GovernanceBoundaryTest {
                         .flatMap(m -> Arrays.stream(m.getParameterTypes()))
                         .noneMatch(t -> t.getName().contains("Invariant")),
                 "AggregatedEntropy never takes an invariant input - E_inv is summed separately");
+    }
+
+    @Test
+    void riskIsNotAnEntropyDimensionEither() {
+        // Increment 30 (OQ-14), the same argument einvIsNotAnEntropyDimension
+        // makes, extended to drift. Section 5.3 imposes no sum constraint on
+        // gamma_d, so the drift penalty is unbounded, and R - being entropy
+        // plus that penalty - is unbounded too. Section 5.1's aggregation
+        // assumes every E_d is in [0,1], so neither may be fed into it.
+        assertTrue(Arrays.stream(AggregatedEntropy.class.getDeclaredMethods())
+                        .flatMap(m -> Arrays.stream(m.getParameterTypes()))
+                        .noneMatch(t -> t.getName().contains("Drift") || t.getName().contains("Risk")),
+                "AggregatedEntropy never takes a drift or risk input - R is summed separately");
+        for (RecordComponent component : WeightedDimension.class.getRecordComponents()) {
+            assertFalse(component.getGenericType().getTypeName().contains("Drift"),
+                    "an entropy weight is w_d, not gamma_d - they are different judgements: " + component);
+        }
+    }
+
+    @Test
+    void violationsAreNotATermInTheRiskModel() {
+        // OQ-14's binding constraint: do not collapse entropy, drift and
+        // violations into an opaque single score. Section 5.3 states two
+        // terms and says nothing about violations, so E_inv and the
+        // exception ledger are reported beside R, never inside it.
+        // Composing all of them without merging them is OQ-16's job.
+        assertTrue(Arrays.stream(org.aerf.analysis.calibration.Risk.class.getDeclaredMethods())
+                        .flatMap(m -> Arrays.stream(m.getParameterTypes()))
+                        .noneMatch(t -> t.getName().contains("Invariant")
+                                || t.getName().contains("ExceptionLedger")),
+                "R takes no invariant or exception-ledger input");
+        for (RecordComponent component
+                : org.aerf.analysis.calibration.RiskAssessment.class.getRecordComponents()) {
+            String type = component.getGenericType().getTypeName();
+            assertFalse(type.contains("Invariant") || type.contains("Excused"),
+                    "a risk assessment must not carry a violations term: " + component);
+        }
     }
 
     @Test

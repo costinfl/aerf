@@ -2,6 +2,7 @@ package org.aerf.report;
 
 import org.aerf.analysis.calibration.WeightedDimension;
 import org.aerf.analysis.governance.GovernancePolicy;
+import org.aerf.analysis.governance.WeightedDriftDimension;
 import org.aerf.analysis.governance.WeightedInvariant;
 import org.aerf.analysis.governance.Subsystem;
 import org.aerf.analysis.invariant.Invariant;
@@ -55,6 +56,7 @@ public final class GovernanceJson {
                 .put("invariants", JsonSupport.array(governance.invariants(), GovernanceJson::invariant))
                 .put("invariantWeights", JsonSupport.array(
                         governance.invariantWeights().declared(), GovernanceJson::weightedInvariant))
+                .put("driftSensitivity", driftSensitivity(governance))
                 .put("approvedExceptions", JsonSupport.array(
                         governance.approvedExceptions().declared(), ExceptionJson::approvedException))
                 .build();
@@ -123,6 +125,22 @@ public final class GovernanceJson {
         return new JsonObjectBuilder()
                 .put("invariantName", weighted.invariantName())
                 .put("weight", weighted.weight())
+                .build();
+    }
+
+    /**
+     * §5.3's beta and gamma_d (OQ-14). {@code beta} is JSON {@code null}
+     * when no sensitivity was declared, which is why {@code R} reads
+     * undefined rather than silently equal to {@code E_total}.
+     */
+    private static JsonValue driftSensitivity(GovernancePolicy governance) {
+        JsonObjectBuilder dimensions = new JsonObjectBuilder();
+        for (WeightedDriftDimension weighted : governance.driftSensitivity().declared()) {
+            dimensions.put(weighted.dimension(), weighted.weight());
+        }
+        return new JsonObjectBuilder()
+                .put("beta", JsonSupport.optionalDouble(governance.driftSensitivity().beta()))
+                .put("dimensionWeights", dimensions.build())
                 .build();
     }
 

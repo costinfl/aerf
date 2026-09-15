@@ -153,6 +153,7 @@ class InvariantAggregateEndToEndTest {
         GovernancePolicy g = base.governance();
         return new PipelineConfig(base.extraction(), base.detection(), new GovernancePolicy(
                 g.layerPolicy(), g.subsystems(), g.includeSelfCyclesInCycleEntropy(),
-                calibration, g.invariants(), InvariantWeights.of(List.of(weights)), g.approvedExceptions()));
+                calibration, g.invariants(), InvariantWeights.of(List.of(weights)), g.driftSensitivity(),
+                g.approvedExceptions()));
     }
 }

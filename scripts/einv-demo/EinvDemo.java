@@ -27,7 +27,7 @@ public class EinvDemo {
         PipelineReport report = Pipeline.run(new PipelineConfig(base.extraction(), base.detection(),
                 new GovernancePolicy(g.layerPolicy(), g.subsystems(), g.includeSelfCyclesInCycleEntropy(),
                         g.calibrationProfile(), g.invariants(), InvariantWeights.of(weights),
-                        g.approvedExceptions())));
+                        g.driftSensitivity(), g.approvedExceptions())));
 
         System.out.println("totalEntropy=" + report.totalEntropy() + "  (unchanged by weighting)");
         System.out.println("E_inv=" + report.invariantAggregate().value());

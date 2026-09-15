@@ -37,7 +37,7 @@ public class ExceptionDemo {
         GovernancePolicy g = base.governance();
         PipelineReport excused = Pipeline.run(new PipelineConfig(base.extraction(), base.detection(),
                 new GovernancePolicy(g.layerPolicy(), g.subsystems(), g.includeSelfCyclesInCycleEntropy(),
-                        g.calibrationProfile(), g.invariants(), g.invariantWeights(),
+                        g.calibrationProfile(), g.invariants(), g.invariantWeights(), g.driftSensitivity(),
                         ApprovedExceptions.of(List.of(new ApprovedException(target,
                                 "batched at the JDBC layer; reviewed 2026-09", "alice"))))));
 

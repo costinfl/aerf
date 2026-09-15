@@ -4,6 +4,7 @@ import org.aerf.analysis.calibration.EntropySnapshot;
 import org.aerf.analysis.calibration.InvariantAggregate;
 import org.aerf.analysis.calibration.MaturityLevel;
 import org.aerf.analysis.governance.ExceptionLedger;
+import org.aerf.analysis.governance.GovernanceFingerprint;
 import org.aerf.analysis.governance.GovernancePolicy;
 import org.aerf.analysis.invariant.InvariantEvaluationResult;
 import org.aerf.analysis.metrics.cycle.CycleEntropyResult;
@@ -148,8 +149,16 @@ public record PipelineReport(
      *     decision {@link org.aerf.analysis.calibration.Drift}'s own
      *     javadoc explains this pipeline deliberately leaves to whatever
      *     caller already has that context.
+     *
+     * <p>Since Increment 30 the snapshot also records which governance
+     * policy produced it, derived from {@link #governance()}. That is the
+     * enabling half Increment 25 delivered finally being used: a stored
+     * baseline now says what it was measured under, so
+     * {@link org.aerf.analysis.calibration.Risk} can refuse to read a
+     * policy change as code drift.
      */
     public EntropySnapshot toEntropySnapshot(String subjectId) {
-        return new EntropySnapshot(subjectId, entropyByDimension());
+        return new EntropySnapshot(subjectId, entropyByDimension(),
+                java.util.Optional.of(GovernanceFingerprint.of(governance())));
     }
 }

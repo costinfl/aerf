@@ -121,7 +121,7 @@ class ApprovedExceptionEndToEndTest {
         GovernancePolicy g = base.governance();
         return new PipelineConfig(base.extraction(), base.detection(), new GovernancePolicy(
                 g.layerPolicy(), g.subsystems(), g.includeSelfCyclesInCycleEntropy(),
-                g.calibrationProfile(), g.invariants(), g.invariantWeights(),
+                g.calibrationProfile(), g.invariants(), g.invariantWeights(), g.driftSensitivity(),
                 ApprovedExceptions.of(List.of(exception))));
     }
 }

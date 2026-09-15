@@ -1,6 +1,8 @@
 package org.aerf.pipeline;
 
 import org.aerf.analysis.calibration.EntropySnapshot;
+import org.aerf.analysis.governance.GovernanceFingerprint;
+import org.aerf.analysis.calibration.DimensionDrift;
 import org.aerf.analysis.governance.GovernancePolicy;
 import org.aerf.analysis.governance.Subsystems;
 import org.aerf.analysis.governance.Subsystem;
@@ -65,27 +67,31 @@ class GovernanceReportEndToEndTest {
     }
 
     @Test
-    void driftComparesValuesWithoutComparingTheGovernanceThatProducedThem() {
-        // A recorded limitation, pinned rather than left silent: an
-        // EntropySnapshot carries a subject id and dimension values and
-        // nothing about the policy those values were measured under. So
-        // comparing a stored baseline against a current scan is only
-        // sound if the governance was identical, and nothing in the data
-        // says whether it was - a policy change could read as code drift.
+    void aSnapshotNowRecordsTheGovernanceItWasMeasuredUnderAndRiskIsWhatRefuses() {
+        // Increment 25 recorded this as finding B and pinned the gap here;
+        // increment 30 (OQ-14) answers it, so the pin now guards the
+        // answer rather than the absence.
         //
-        // Not fixed here, because fixing it forces the question "what
-        // does Drift.compute do when the two policies differ - reject,
-        // warn, annotate, compare anyway?", which is drift semantics and
-        // belongs to OQ-14. Increment 25 delivers the enabling half: the
-        // report now carries its policy, so a caller storing a baseline
-        // has something to store.
-        for (RecordComponent component : EntropySnapshot.class.getRecordComponents()) {
-            assertFalse(component.getGenericType().getTypeName().contains("Governance"),
-                    "EntropySnapshot gained governance identity - that is OQ-14's decision and needs its "
-                            + "record: " + component);
-        }
-        assertEquals(List.of("subjectId", "dimensionValues"),
+        // The question the old comment said fixing it would force - "what
+        // does Drift.compute do when the two policies differ?" - is
+        // answered by splitting it. Drift still compares values alone,
+        // because a numeric difference is arithmetically sound whatever
+        // produced it. Risk, which *interprets* that difference as code
+        // drift, is what refuses.
+        PipelineReport report = Pipeline.run(PipelineTest.config());
+        EntropySnapshot snapshot = report.toEntropySnapshot("defect-sample");
+
+        assertEquals(List.of("subjectId", "dimensionValues", "governanceFingerprint"),
                 java.util.Arrays.stream(EntropySnapshot.class.getRecordComponents())
+                        .map(RecordComponent::getName).toList());
+        assertTrue(snapshot.governanceFingerprint().isPresent(),
+                "a snapshot from a real run knows the policy it was measured under");
+        assertEquals(GovernanceFingerprint.of(report.governance()),
+                snapshot.governanceFingerprint().orElseThrow());
+
+        // Drift is unchanged: still two components, still no governance.
+        assertEquals(List.of("dimension", "baselineValue", "currentValue", "delta"),
+                java.util.Arrays.stream(DimensionDrift.class.getRecordComponents())
                         .map(RecordComponent::getName).toList());
     }
 
@@ -117,7 +123,8 @@ class GovernanceReportEndToEndTest {
                                 Subsystem.withLayerPolicy("everything", "com", permissive))),
                         governance.includeSelfCyclesInCycleEntropy(),
                         governance.calibrationProfile(), governance.invariants(),
-                        governance.invariantWeights(), governance.approvedExceptions())));
+                        governance.invariantWeights(), governance.driftSensitivity(),
+                        governance.approvedExceptions())));
 
         assertEquals(strict.layerEntropy().relevantEdges().size(),
                 relaxed.layerEntropy().relevantEdges().size(),

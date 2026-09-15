@@ -46,6 +46,12 @@ import java.util.Objects;
  * an entropy dimension's weight sits in {@code CalibrationProfile}: it is
  * a governance choice about a rule, not a property of one.
  *
+ * <p>{@link #driftSensitivity()} (Increment 30, OQ-14) carries §5.3's
+ * {@code beta} and {@code gamma_d} — how much an organization cares about
+ * architecture getting <em>worse</em>, as distinct from how bad it is now.
+ * Declaring none leaves {@code R} undefined rather than silently equal to
+ * {@code E_total}.
+ *
  * <p>{@link #approvedExceptions()} (Increment 28, OQ-09) records the
  * findings an organization has looked at and decided to live with. It
  * changes no measured value and removes no finding: it produces an
@@ -88,6 +94,7 @@ public record GovernancePolicy(
         CalibrationProfile calibrationProfile,
         List<Invariant> invariants,
         InvariantWeights invariantWeights,
+        DriftSensitivity driftSensitivity,
         ApprovedExceptions approvedExceptions) {
 
     public GovernancePolicy {
@@ -96,6 +103,7 @@ public record GovernancePolicy(
         Objects.requireNonNull(calibrationProfile, "calibrationProfile");
         invariants = List.copyOf(Objects.requireNonNull(invariants, "invariants"));
         Objects.requireNonNull(invariantWeights, "invariantWeights");
+        Objects.requireNonNull(driftSensitivity, "driftSensitivity");
         Objects.requireNonNull(approvedExceptions, "approvedExceptions");
     }
 
@@ -112,6 +120,6 @@ public record GovernancePolicy(
             List<Invariant> invariants) {
         return new GovernancePolicy(layerPolicy, Subsystems.none(),
                 includeSelfCyclesInCycleEntropy, calibrationProfile, invariants,
-                InvariantWeights.none(), ApprovedExceptions.none());
+                InvariantWeights.none(), DriftSensitivity.none(), ApprovedExceptions.none());
     }
 }

@@ -4,6 +4,7 @@ import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.OptionalDouble;
 
 /**
@@ -26,10 +27,36 @@ import java.util.OptionalDouble;
  * than inventing a new identifier shape, since that is the one place
  * this project already persists more than one measurement of the same
  * subject over time.
+ *
+ * <p>{@code governanceFingerprint} (Increment 30, OQ-14) records which
+ * governance policy produced this measurement, closing the gap Increment
+ * 25 recorded: without it, comparing a stored baseline against a current
+ * scan is only sound if the policy was identical, and nothing in the data
+ * said whether it was — so a policy change could read as code drift.
+ * {@code Drift} still compares values alone, because a numeric difference
+ * is arithmetically sound whatever produced it; it is
+ * {@link Risk}, which <em>interprets</em> that difference, that refuses
+ * to proceed across a policy change. See {@code GovernanceFingerprint}
+ * on why matching fingerprints prove less than differing ones.
  */
-public record EntropySnapshot(String subjectId, Map<String, OptionalDouble> dimensionValues) {
+public record EntropySnapshot(
+        String subjectId,
+        Map<String, OptionalDouble> dimensionValues,
+        Optional<String> governanceFingerprint) {
+
+    /**
+     * A measurement whose governing policy was not recorded — a baseline
+     * stored before Increment 30, for instance. Deliberately named rather
+     * than defaulted: "the policy is unknown" is a different statement
+     * from "the policy matched", and {@code Risk} treats it as such.
+     */
+    public static EntropySnapshot withoutGovernanceIdentity(
+            String subjectId, Map<String, OptionalDouble> dimensionValues) {
+        return new EntropySnapshot(subjectId, dimensionValues, Optional.empty());
+    }
 
     public EntropySnapshot {
+        Objects.requireNonNull(governanceFingerprint, "governanceFingerprint");
         Objects.requireNonNull(subjectId, "subjectId");
         if (subjectId.isBlank()) {
             throw new IllegalArgumentException("subjectId must not be blank");
