@@ -67,6 +67,55 @@ class GraphJsonTest {
     }
 
     @Test
+    void anEvidenceItemsStructuredAttributesReachTheReport() {
+        // Finding R. Until this was fixed, GraphJson emitted an evidence
+        // item's adapter, description, location, fidelity and execution
+        // context - and silently dropped the one field a rule actually
+        // matches on. The free-text description says "@Controller
+        // annotation observed"; only the attribute says WHICH @Controller,
+        // by resolved fully-qualified name, which is the whole difference
+        // between a real annotation and one that merely shares a simple
+        // name with it.
+        Evidence evidence = Evidence.builder(
+                        "spring", "@Controller annotation observed", ExtractionFidelity.L2_SYMBOL_RESOLVED)
+                .attribute("annotation", "org.springframework.stereotype.Controller")
+                .build();
+
+        String json = JsonWriter.write(GraphJson.evidence(evidence));
+
+        assertTrue(json.contains("\"attributes\":{\"annotation\":\"org.springframework.stereotype.Controller\"}"),
+                json);
+    }
+
+    @Test
+    void anEvidenceItemWithNoAttributesSerializesAnEmptyObjectRatherThanOmittingTheKey() {
+        // The same shape a node with no attributes has always had: absent
+        // and empty are different claims, and a consumer should not have
+        // to distinguish "this adapter records no attributes" from "this
+        // serializer forgot them" - which is exactly the confusion finding
+        // R describes.
+        String json = JsonWriter.write(GraphJson.evidence(
+                Evidence.of("java", "class declaration observed", ExtractionFidelity.L1_SYNTAX)));
+
+        assertTrue(json.contains("\"attributes\":{}"), json);
+    }
+
+    @Test
+    void attributeOrderFollowsTheMapsOwnInsertionOrder() {
+        // Evidence keeps a LinkedHashMap precisely so serialized output is
+        // deterministic across runs (section 14). Renderer must not sort or
+        // re-order.
+        Evidence evidence = Evidence.builder("spring", "observed", ExtractionFidelity.L1_SYNTAX)
+                .attribute("zeta", "1")
+                .attribute("alpha", "2")
+                .build();
+
+        String json = JsonWriter.write(GraphJson.evidence(evidence));
+
+        assertTrue(json.contains("\"attributes\":{\"zeta\":\"1\",\"alpha\":\"2\"}"), json);
+    }
+
+    @Test
     void iteratedExecutionContextIsVisibleInTheEdgesProvenance() {
         Node service = Node.of(NodeId.of("service"), NodeType.COMPONENT, Role.APPLICATION, Map.of(), List.of());
         Node repository = Node.of(NodeId.of("repository"), NodeType.COMPONENT, Role.PERSISTENCE, Map.of(), List.of());
