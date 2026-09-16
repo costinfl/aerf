@@ -1,0 +1,88 @@
+name: Supabase keep-alive
+
+# Supabase pauses free-tier projects after roughly 7 days without
+# activity, which would take the scan dashboard (dashboard/, deployed by
+# pages.yml) offline until someone restored the project by hand. This
+# workflow makes one real read a day so the project stays awake.
+#
+# Why GitHub Actions rather than a scheduled Claude session: the agent
+# environment this repo is developed in cannot reach the host at all -
+# its outbound proxy answers 403 to CONNECT for
+# sxfgopmtedjutkxuixas.supabase.co - so a scheduled session there would
+# fail every day without ever pinging anything. GitHub-hosted runners
+# have open egress.
+#
+# Why this particular request: it is the same read the dashboard itself
+# performs on load (dashboard/app.js, `.from('projects')`), so it
+# exercises PostgREST and Postgres rather than a management API that
+# would not count as project activity.
+#
+# KNOWN LIMITATION, and the one failure mode that sends no email: GitHub
+# disables scheduled workflows in a repository with no commit activity
+# for 60 days. If Supabase warns about idleness again, check the Actions
+# tab first - the schedule may simply have been turned off.
+
+on:
+  schedule:
+    # Daily. Deliberately not on the hour: GitHub delays schedules that
+    # cluster at :00, and this needs no particular time of day - only
+    # that it lands comfortably inside the ~7-day window.
+    - cron: '37 5 * * *'
+  # Lets the ping be run by hand, which is also how it was first verified
+  # (it cannot be tested from the development environment, see above).
+  workflow_dispatch:
+
+# Nothing here touches the repository or the GitHub API.
+permissions: {}
+
+concurrency:
+  group: supabase-keepalive
+  cancel-in-progress: false
+
+jobs:
+  ping:
+    name: Read one row from aerf-db
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: GET /rest/v1/projects
+        env:
+          # Safe to embed, for the same reason dashboard/app.js embeds it:
+          # this is the publishable/anon key, and supabase/schema.sql's RLS
+          # policies grant it read-only access - it cannot write, whoever
+          # holds it. It is already public, shipped to every browser that
+          # loads the dashboard. Deliberately NOT the service role key,
+          # which push-scan.mjs needs and which must never appear here.
+          #
+          # dashboard/app.js is the other copy. If the key is ever rotated
+          # both need updating; this job failing loudly is what makes that
+          # divergence visible rather than silent.
+          SUPABASE_URL: https://sxfgopmtedjutkxuixas.supabase.co
+          SUPABASE_ANON_KEY: sb_publishable_EeB9qA3R_GpAG_LhGZi4IQ_nGuPpmru
+        run: |
+          set -euo pipefail
+
+          url="${SUPABASE_URL}/rest/v1/projects?select=id&limit=1"
+          body_file="$(mktemp)"
+
+          # --fail is deliberately NOT used: it suppresses the response
+          # body, and on a 401 that body is the only thing that says
+          # whether the key was rejected or the table is missing.
+          status="$(curl -sS \
+            -o "$body_file" \
+            -w '%{http_code}' \
+            --max-time 30 \
+            --retry 3 --retry-delay 5 --retry-connrefused \
+            -H "apikey: ${SUPABASE_ANON_KEY}" \
+            -H "Authorization: Bearer ${SUPABASE_ANON_KEY}" \
+            "$url")"
+
+          echo "HTTP $status"
+          echo "body: $(cat "$body_file")"
+
+          if [ "$status" != "200" ]; then
+            echo "::error::aerf-db keep-alive failed with HTTP $status - the project may be paused, or the anon key/table may have changed since dashboard/app.js was last updated."
+            exit 1
+          fi
+
+          echo "aerf-db answered; inactivity timer reset."
